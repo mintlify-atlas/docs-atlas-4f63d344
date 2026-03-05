@@ -1,0 +1,142 @@
+{
+  "projectType": "saas",
+  "projectName": "Horse Trust",
+  "projectDescription": "A full-stack equestrian marketplace platform for buying and selling horses with user authentication, listings management, real-time chat, and seller verification.",
+  "theme": "almond",
+  "primaryColor": "#cdb47a",
+  "lightColor": "#1b2e4e",
+  "darkColor": "#746c64",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "architecture"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/authentication",
+              "features/horse-listings",
+              "features/marketplace",
+              "features/real-time-chat",
+              "features/seller-verification"
+            ]
+          },
+          {
+            "group": "Frontend",
+            "pages": [
+              "frontend/overview",
+              "frontend/components",
+              "frontend/routing",
+              "frontend/styling"
+            ]
+          },
+          {
+            "group": "Backend",
+            "pages": [
+              "backend/overview",
+              "backend/database-models",
+              "backend/middleware",
+              "backend/websockets"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/environment-variables",
+              "deployment/setup",
+              "deployment/production"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing/getting-started",
+              "contributing/git-workflow",
+              "contributing/code-standards"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Authentication",
+            "pages": [
+              "api/auth/register",
+              "api/auth/login",
+              "api/auth/me",
+              "api/auth/seller-profile"
+            ]
+          },
+          {
+            "group": "Horses",
+            "pages": [
+              "api/horses/list",
+              "api/horses/get",
+              "api/horses/create",
+              "api/horses/update",
+              "api/horses/delete",
+              "api/horses/my-listings",
+              "api/horses/vet-records"
+            ]
+          },
+          {
+            "group": "Chat",
+            "pages": [
+              "api/chat/conversations",
+              "api/chat/messages",
+              "api/chat/unread-count"
+            ]
+          },
+          {
+            "group": "Admin",
+            "pages": [
+              "api/admin/overview"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "User authentication with JWT and role-based access (admin/seller)",
+    "Horse listing management with photos, videos, and location",
+    "Advanced marketplace with filtering and search capabilities",
+    "Real-time chat system using Socket.io for buyer-seller communication",
+    "Seller identity verification system with document upload",
+    "Veterinary records tracking for horses",
+    "Responsive Next.js frontend with Tailwind CSS",
+    "Express.js REST API with MongoDB database",
+    "Rate limiting and security middleware (Helmet)",
+    "Full-text search for horse listings"
+  ],
+  "publicApiSurface": [
+    "POST /auth/register - Register new user",
+    "POST /auth/login - User login",
+    "GET /auth/me - Get current user profile",
+    "PUT /auth/seller-profile - Update seller verification info",
+    "GET /horses - List all horses with filtering",
+    "GET /horses/:id - Get single horse details",
+    "POST /horses - Create new horse listing",
+    "PUT /horses/:id - Update horse listing",
+    "DELETE /horses/:id - Delete horse listing",
+    "GET /horses/my-listings - Get seller's own horses",
+    "POST /horses/:id/vet-record - Add veterinary record",
+    "GET /horses/:id/vet-records - Get horse's vet records",
+    "GET /chat/conversations - List user's conversations",
+    "POST /chat/conversations - Create or get conversation",
+    "GET /chat/conversations/:id/messages - Get conversation messages",
+    "POST /chat/conversations/:id/messages - Send message",
+    "GET /chat/unread-count - Get unread messages count",
+    "Socket.io: join_conversation, send_message, typing, stop_typing"
+  ]
+}

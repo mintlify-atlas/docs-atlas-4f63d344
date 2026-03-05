@@ -469,6 +469,10 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
 }
 ```
 
+<Note>
+The `/health/reconnect` endpoint called by the frontend is referenced in the client code but not yet implemented in the backend API. The frontend includes this code for future database reconnection functionality.
+</Note>
+
 ## Next Steps
 
 <CardGroup cols={2}>

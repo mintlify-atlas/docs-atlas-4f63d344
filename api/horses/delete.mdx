@@ -1,0 +1,143 @@
+---
+title: "Delete Horse"
+api: "DELETE /api/horses/:id"
+description: "Delete a horse listing and all associated vet records (owner or admin)"
+---
+
+## Authentication
+
+Required - JWT Bearer token
+
+```bash
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+## Authorization
+
+- **Sellers** can only delete their own listings
+- **Admins** can delete any listing
+
+## Path Parameters
+
+<ParamField path="id" type="string" required>
+  Horse unique identifier (MongoDB ObjectId)
+</ParamField>
+
+## Behavior
+
+- Permanently deletes the horse listing
+- Automatically deletes all associated vet records
+- Cannot be undone
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Confirmation message
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash cURL
+curl -X DELETE "https://api.horsetrust.com/api/horses/507f1f77bcf86cd799439011" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+```javascript JavaScript
+const horseId = '507f1f77bcf86cd799439011';
+const response = await fetch(`https://api.horsetrust.com/api/horses/${horseId}`, {
+  method: 'DELETE',
+  headers: {
+    'Authorization': 'Bearer YOUR_JWT_TOKEN'
+  }
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+```python Python
+import requests
+
+horse_id = '507f1f77bcf86cd799439011'
+response = requests.delete(
+    f'https://api.horsetrust.com/api/horses/{horse_id}',
+    headers={
+        'Authorization': 'Bearer YOUR_JWT_TOKEN'
+    }
+)
+
+data = response.json()
+print(data)
+```
+
+</CodeGroup>
+
+<ResponseExample>
+
+```json Response
+{
+  "success": true,
+  "message": "Horse listing deleted"
+}
+```
+
+</ResponseExample>
+
+## Error Responses
+
+### 400 - Invalid Horse ID
+
+```json
+{
+  "success": false,
+  "message": "Invalid horse ID"
+}
+```
+
+### 401 - Unauthorized
+
+```json
+{
+  "success": false,
+  "message": "Authentication required"
+}
+```
+
+### 404 - Not Found or Unauthorized
+
+Returned when:
+- Horse ID doesn't exist
+- User is not the owner and not an admin
+
+```json
+{
+  "success": false,
+  "message": "Horse not found or unauthorized"
+}
+```
+
+### 500 - Server Error
+
+```json
+{
+  "success": false,
+  "message": "Server error"
+}
+```
+
+## Notes
+
+<Warning>
+  This operation is **permanent** and cannot be undone. All associated vet records will also be deleted.
+</Warning>
+
+- Sellers can only delete horses they own
+- Admins can delete any horse listing
+- Associated vet records are automatically removed
+- Consider setting `status: "paused"` instead of deleting if you want to temporarily hide a listing

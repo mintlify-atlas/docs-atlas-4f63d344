@@ -1,0 +1,434 @@
+---
+title: Code Standards
+description: Code quality guidelines and best practices for Horse Trust development
+---
+
+## Overview
+
+Maintaining high code quality standards ensures that Horse Trust remains maintainable, scalable, and reliable. This guide outlines our coding conventions and best practices.
+
+## TypeScript Guidelines
+
+All code in Horse Trust is written in TypeScript for type safety and better developer experience.
+
+### Type Safety
+
+**Always use explicit types:**
+
+```typescript
+// Good
+function calculateFee(amount: number, discount: number): number {
+  return amount * (1 - discount);
+}
+
+// Bad
+function calculateFee(amount, discount) {
+  return amount * (1 - discount);
+}
+```
+
+**Avoid `any` type:**
+
+```typescript
+// Good
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+function getUser(id: string): Promise<User> {
+  // implementation
+}
+
+// Bad
+function getUser(id: string): Promise<any> {
+  // implementation
+}
+```
+
+### TypeScript Configuration
+
+#### Backend (`server/tsconfig.json`)
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES6",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist",
+    "rootDir": "./src"
+  }
+}
+```
+
+#### Frontend (`client/tsconfig.json`)
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "strict": true,
+    "jsx": "react-jsx",
+    "module": "esnext",
+    "moduleResolution": "bundler"
+  }
+}
+```
+
+## Code Style
+
+### General Principles
+
+1. **Write clean, readable code** - Code is read more often than it's written
+2. **Be consistent** - Follow existing patterns in the codebase
+3. **Keep it simple** - Avoid over-engineering solutions
+4. **Document when necessary** - Explain complex logic and business rules
+
+### Naming Conventions
+
+**Variables and Functions** - Use camelCase:
+```typescript
+const userProfile = {};
+function getUserData() {}
+```
+
+**Classes and Interfaces** - Use PascalCase:
+```typescript
+class UserService {}
+interface DonationRecord {}
+```
+
+**Constants** - Use UPPER_SNAKE_CASE:
+```typescript
+const MAX_UPLOAD_SIZE = 5000000;
+const API_BASE_URL = 'https://api.example.com';
+```
+
+**Private class members** - Prefix with underscore:
+```typescript
+class UserService {
+  private _cache: Map<string, User>;
+}
+```
+
+### File Naming
+
+- **Components** - PascalCase: `UserProfile.tsx`, `DonationCard.tsx`
+- **Utilities** - camelCase: `formatDate.ts`, `validateEmail.ts`
+- **Constants** - camelCase: `apiConfig.ts`, `routePaths.ts`
+
+## Frontend Standards (Next.js)
+
+### Component Structure
+
+```typescript
+import React from 'react';
+
+interface UserProfileProps {
+  userId: string;
+  onUpdate?: (user: User) => void;
+}
+
+export default function UserProfile({ userId, onUpdate }: UserProfileProps) {
+  // Hooks at the top
+  const [user, setUser] = React.useState<User | null>(null);
+  
+  // Event handlers
+  const handleUpdate = () => {
+    // implementation
+  };
+  
+  // Render
+  return (
+    <div>
+      {/* Component JSX */}
+    </div>
+  );
+}
+```
+
+### React Best Practices
+
+1. **Use functional components** with hooks
+2. **Destructure props** in function parameters
+3. **Use TypeScript interfaces** for props
+4. **Keep components small** and focused
+5. **Extract reusable logic** into custom hooks
+
+### ESLint Configuration
+
+We use ESLint with Next.js configuration:
+
+```javascript
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  globalIgnores([".next/**", "out/**", "build/**"])
+]);
+```
+
+**Run linting:**
+```bash
+npm run lint
+```
+
+## Backend Standards (Express.js)
+
+### API Route Structure
+
+```typescript
+import { Request, Response } from 'express';
+import { validationResult } from 'express-validator';
+
+export const getUser = async (req: Request, res: Response) => {
+  try {
+    // Validate request
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ 
+        success: false, 
+        errors: errors.array() 
+      });
+    }
+    
+    // Business logic
+    const user = await UserService.findById(req.params.id);
+    
+    // Response
+    return res.status(200).json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+```
+
+### API Response Format
+
+**Success response:**
+```typescript
+{
+  success: true,
+  data: { /* response data */ },
+  message?: "Optional success message"
+}
+```
+
+**Error response:**
+```typescript
+{
+  success: false,
+  message: "Error description",
+  errors?: [ /* validation errors */ ]
+}
+```
+
+### Error Handling
+
+```typescript
+// Use try-catch for async operations
+try {
+  const result = await someAsyncOperation();
+  // handle success
+} catch (error) {
+  console.error('Operation failed:', error);
+  // handle error appropriately
+}
+```
+
+## Security Best Practices
+
+### Environment Variables
+
+**NEVER commit sensitive data:**
+
+```typescript
+// Good - Use environment variables
+const dbUrl = process.env.DATABASE_URL;
+const jwtSecret = process.env.JWT_SECRET;
+
+// Bad - Hardcoded credentials
+const dbUrl = 'mongodb://user:password@localhost:27017';
+```
+
+### Input Validation
+
+**Always validate user input:**
+
+```typescript
+import { body, validationResult } from 'express-validator';
+
+export const validateUser = [
+  body('email').isEmail().normalizeEmail(),
+  body('password').isLength({ min: 8 }),
+  body('name').trim().notEmpty()
+];
+```
+
+### Authentication
+
+**Use JWT for authentication:**
+
+```typescript
+import jwt from 'jsonwebtoken';
+
+const token = jwt.sign(
+  { userId: user.id },
+  process.env.JWT_SECRET!,
+  { expiresIn: '24h' }
+);
+```
+
+## Testing Standards
+
+### Write Tests for:
+
+1. **New features** - Ensure functionality works as expected
+2. **Bug fixes** - Prevent regression
+3. **Critical paths** - Authentication, payments, data processing
+4. **Utility functions** - Pure functions are easy to test
+
+### Test Structure
+
+```typescript
+describe('UserService', () => {
+  describe('findById', () => {
+    it('should return user when found', async () => {
+      // Arrange
+      const userId = '123';
+      
+      // Act
+      const user = await UserService.findById(userId);
+      
+      // Assert
+      expect(user).toBeDefined();
+      expect(user.id).toBe(userId);
+    });
+    
+    it('should throw error when user not found', async () => {
+      // Arrange
+      const userId = 'nonexistent';
+      
+      // Act & Assert
+      await expect(UserService.findById(userId))
+        .rejects.toThrow('User not found');
+    });
+  });
+});
+```
+
+## Documentation Standards
+
+### Code Comments
+
+**Comment complex logic:**
+
+```typescript
+// Calculate discounted price based on user tier and current promotions
+// Tier 1: 10% discount
+// Tier 2: 20% discount
+// Tier 3: 30% discount
+function calculateDiscount(price: number, userTier: number): number {
+  const discountRate = userTier * 0.1;
+  return price * (1 - discountRate);
+}
+```
+
+**Use JSDoc for public APIs:**
+
+```typescript
+/**
+ * Fetches user data by ID
+ * @param userId - The unique identifier of the user
+ * @returns Promise resolving to user data
+ * @throws {NotFoundError} When user doesn't exist
+ */
+async function getUserById(userId: string): Promise<User> {
+  // implementation
+}
+```
+
+## Performance Guidelines
+
+### Database Queries
+
+```typescript
+// Good - Use projection to limit returned fields
+const user = await User.findById(id).select('name email');
+
+// Bad - Fetch entire document when not needed
+const user = await User.findById(id);
+```
+
+### React Performance
+
+```typescript
+// Use React.memo for expensive components
+const ExpensiveComponent = React.memo(({ data }) => {
+  // component logic
+});
+
+// Use useMemo for expensive calculations
+const sortedData = React.useMemo(
+  () => data.sort((a, b) => a.value - b.value),
+  [data]
+);
+```
+
+## Pre-Commit Checklist
+
+Before committing your code:
+
+- [ ] Code follows TypeScript standards
+- [ ] All tests pass
+- [ ] ESLint shows no errors
+- [ ] No console.log statements (use proper logging)
+- [ ] No commented-out code
+- [ ] Environment variables not hardcoded
+- [ ] Code is properly formatted
+- [ ] Complex logic is documented
+
+## Code Review Focus Areas
+
+When reviewing code, pay attention to:
+
+1. **Type safety** - Proper TypeScript usage
+2. **Error handling** - Try-catch blocks, validation
+3. **Security** - No exposed credentials, proper authentication
+4. **Performance** - Efficient queries, proper caching
+5. **Readability** - Clear naming, good structure
+6. **Testing** - Adequate test coverage
+
+<Note>
+Code quality is everyone's responsibility. Take pride in your code and help maintain our high standards.
+</Note>
+
+## Resources
+
+- [TypeScript Documentation](https://www.typescriptlang.org/docs/)
+- [Next.js Best Practices](https://nextjs.org/docs)
+- [Express.js Guide](https://expressjs.com/en/guide/routing.html)
+- [React TypeScript Cheatsheet](https://react-typescript-cheatsheet.netlify.app/)
+
+## Getting Help
+
+If you have questions about code standards:
+
+- Contact the repository maintainer
+- Reach out to the team: **S02-26-Equipo-33-Web-App**
+- Review existing code for examples

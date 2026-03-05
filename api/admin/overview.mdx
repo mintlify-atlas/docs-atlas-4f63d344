@@ -1,0 +1,870 @@
+---
+title: 'Admin API'
+description: 'Admin-only endpoints for platform management and moderation'
+---
+
+## Overview
+
+The Admin API provides privileged endpoints for platform administrators to manage seller verifications, validate veterinary records, monitor platform statistics, and moderate content.
+
+<Warning>
+All admin endpoints require both authentication and admin role authorization. Requests without valid admin credentials will be rejected with a 403 Forbidden response.
+</Warning>
+
+## Authentication & Authorization
+
+Admin endpoints use two-layer protection:
+
+1. **Authentication**: Valid JWT token in `Authorization: Bearer <token>` header
+2. **Authorization**: User must have `role: "admin"` in their account
+
+```bash
+# All requests must include authentication header
+Authorization: Bearer <admin_jwt_token>
+```
+
+### Access Control
+
+Admin routes are protected by two middleware functions (server/src/routes/admin.ts:11):
+- `authenticate` - Validates JWT token and loads user context
+- `requireAdmin` - Verifies user has admin role
+
+Unauthorized requests receive:
+```json
+{
+  "success": false,
+  "message": "Access denied"
+}
+```
+
+---
+
+## Get Admin Dashboard
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.horsetrust.com/api/admin/dashboard \
+  -H "Authorization: Bearer <admin_token>"
+```
+
+```javascript Node.js
+const response = await fetch('https://api.horsetrust.com/api/admin/dashboard', {
+  headers: {
+    'Authorization': `Bearer ${adminToken}`
+  }
+});
+const data = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    'https://api.horsetrust.com/api/admin/dashboard',
+    headers={'Authorization': f'Bearer {admin_token}'}
+)
+data = response.json()
+```
+</CodeGroup>
+
+Retrieves platform-wide statistics for the admin dashboard.
+
+**Endpoint:** `GET /api/admin/dashboard`
+
+### Response
+
+<ResponseField name="success" type="boolean" required>
+  Indicates request success
+</ResponseField>
+
+<ResponseField name="data" type="object" required>
+  <ResponseField name="totalUsers" type="number">
+    Total registered users across all roles
+  </ResponseField>
+  
+  <ResponseField name="pendingSellers" type="number">
+    Number of sellers awaiting verification
+  </ResponseField>
+  
+  <ResponseField name="totalHorses" type="number">
+    Total horses listed on the platform
+  </ResponseField>
+  
+  <ResponseField name="activeListings" type="number">
+    Number of horses with status "active"
+  </ResponseField>
+  
+  <ResponseField name="pendingVet" type="number">
+    Veterinary records awaiting validation
+  </ResponseField>
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "totalUsers": 1247,
+    "pendingSellers": 8,
+    "totalHorses": 543,
+    "activeListings": 412,
+    "pendingVet": 23
+  }
+}
+```
+
+---
+
+## Get Pending Sellers
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.horsetrust.com/api/admin/sellers/pending \
+  -H "Authorization: Bearer <admin_token>"
+```
+
+```javascript Node.js
+const response = await fetch('https://api.horsetrust.com/api/admin/sellers/pending', {
+  headers: {
+    'Authorization': `Bearer ${adminToken}`
+  }
+});
+const sellers = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    'https://api.horsetrust.com/api/admin/sellers/pending',
+    headers={'Authorization': f'Bearer {admin_token}'}
+)
+sellers = response.json()
+```
+</CodeGroup>
+
+Retrieves all sellers with pending verification status for admin review.
+
+**Endpoint:** `GET /api/admin/sellers/pending`
+
+### Response
+
+<ResponseField name="success" type="boolean" required>
+  Indicates request success
+</ResponseField>
+
+<ResponseField name="data" type="array" required>
+  Array of seller objects awaiting verification
+  
+  <ResponseField name="email" type="string">
+    Seller's email address
+  </ResponseField>
+  
+  <ResponseField name="full_name" type="string">
+    Seller's full name
+  </ResponseField>
+  
+  <ResponseField name="phone" type="string">
+    Seller's phone number
+  </ResponseField>
+  
+  <ResponseField name="seller_profile" type="object">
+    <ResponseField name="verification_status" type="string">
+      Current status (will be "pending")
+    </ResponseField>
+    
+    <ResponseField name="business_name" type="string">
+      Business name if applicable
+    </ResponseField>
+    
+    <ResponseField name="years_experience" type="number">
+      Years of horse trading experience
+    </ResponseField>
+  </ResponseField>
+  
+  <ResponseField name="created_at" type="string">
+    Account creation timestamp
+  </ResponseField>
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "60d5f7e8f8d9a72e3c8b4567",
+      "email": "john.smith@example.com",
+      "full_name": "John Smith",
+      "phone": "+1234567890",
+      "seller_profile": {
+        "verification_status": "pending",
+        "business_name": "Smith Stables",
+        "years_experience": 15
+      },
+      "created_at": "2024-03-01T10:30:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+## Verify Seller
+
+<CodeGroup>
+```bash cURL (Approve)
+curl -X PUT https://api.horsetrust.com/api/admin/sellers/60d5f7e8f8d9a72e3c8b4567/verify \
+  -H "Authorization: Bearer <admin_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "approve"
+  }'
+```
+
+```bash cURL (Reject)
+curl -X PUT https://api.horsetrust.com/api/admin/sellers/60d5f7e8f8d9a72e3c8b4567/verify \
+  -H "Authorization: Bearer <admin_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "reject",
+    "rejection_reason": "Insufficient documentation provided"
+  }'
+```
+
+```javascript Node.js
+// Approve seller
+const response = await fetch(
+  `https://api.horsetrust.com/api/admin/sellers/${sellerId}/verify`,
+  {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${adminToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      action: 'approve'
+    })
+  }
+);
+
+// Reject seller
+const response = await fetch(
+  `https://api.horsetrust.com/api/admin/sellers/${sellerId}/verify`,
+  {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${adminToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      action: 'reject',
+      rejection_reason: 'Insufficient documentation provided'
+    })
+  }
+);
+```
+
+```python Python
+import requests
+
+# Approve seller
+response = requests.put(
+    f'https://api.horsetrust.com/api/admin/sellers/{seller_id}/verify',
+    headers={
+        'Authorization': f'Bearer {admin_token}',
+        'Content-Type': 'application/json'
+    },
+    json={'action': 'approve'}
+)
+
+# Reject seller
+response = requests.put(
+    f'https://api.horsetrust.com/api/admin/sellers/{seller_id}/verify',
+    headers={
+        'Authorization': f'Bearer {admin_token}',
+        'Content-Type': 'application/json'
+    },
+    json={
+        'action': 'reject',
+        'rejection_reason': 'Insufficient documentation provided'
+    }
+)
+```
+</CodeGroup>
+
+Approve or reject a seller's verification request.
+
+**Endpoint:** `PUT /api/admin/sellers/:id/verify`
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Seller's user ID (MongoDB ObjectId)
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="action" type="string" required>
+  Action to perform: `"approve"` or `"reject"`
+</ParamField>
+
+<ParamField body="rejection_reason" type="string">
+  Required when action is "reject". Reason for rejection shown to seller
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean" required>
+  Indicates request success
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  Human-readable result message
+</ResponseField>
+
+<ResponseField name="data" type="object" required>
+  Updated seller user object (password excluded)
+  
+  <ResponseField name="seller_profile" type="object">
+    <ResponseField name="verification_status" type="string">
+      Updated status: "verified" or "rejected"
+    </ResponseField>
+    
+    <ResponseField name="is_verified_badge" type="boolean">
+      True if approved, false if rejected
+    </ResponseField>
+    
+    <ResponseField name="verification_method" type="string">
+      Set to "manual" when approved by admin
+    </ResponseField>
+    
+    <ResponseField name="verified_at" type="string">
+      Timestamp of verification (approve only)
+    </ResponseField>
+    
+    <ResponseField name="verified_by" type="string">
+      Admin user ID who performed verification
+    </ResponseField>
+    
+    <ResponseField name="rejection_reason" type="string">
+      Reason for rejection (reject only)
+    </ResponseField>
+  </ResponseField>
+</ResponseField>
+
+### Example Response (Approved)
+
+```json
+{
+  "success": true,
+  "message": "Seller verified",
+  "data": {
+    "_id": "60d5f7e8f8d9a72e3c8b4567",
+    "email": "john.smith@example.com",
+    "full_name": "John Smith",
+    "role": "seller",
+    "seller_profile": {
+      "verification_status": "verified",
+      "is_verified_badge": true,
+      "verification_method": "manual",
+      "verified_at": "2024-03-05T14:30:00.000Z",
+      "verified_by": "60d5f7e8f8d9a72e3c8b1234",
+      "rejection_reason": null
+    }
+  }
+}
+```
+
+### Example Response (Rejected)
+
+```json
+{
+  "success": true,
+  "message": "Seller rejected",
+  "data": {
+    "_id": "60d5f7e8f8d9a72e3c8b4567",
+    "email": "john.smith@example.com",
+    "full_name": "John Smith",
+    "role": "seller",
+    "seller_profile": {
+      "verification_status": "rejected",
+      "is_verified_badge": false,
+      "rejection_reason": "Insufficient documentation provided"
+    }
+  }
+}
+```
+
+### Error Responses
+
+<ResponseField name="400 Bad Request">
+  Invalid seller ID or action parameter
+  ```json
+  {
+    "success": false,
+    "message": "action must be 'approve' or 'reject'"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="404 Not Found">
+  Seller not found
+  ```json
+  {
+    "success": false,
+    "message": "Seller not found"
+  }
+  ```
+</ResponseField>
+
+---
+
+## Get Pending Vet Records
+
+<CodeGroup>
+```bash cURL
+curl -X GET https://api.horsetrust.com/api/admin/vet-records/pending \
+  -H "Authorization: Bearer <admin_token>"
+```
+
+```javascript Node.js
+const response = await fetch('https://api.horsetrust.com/api/admin/vet-records/pending', {
+  headers: {
+    'Authorization': `Bearer ${adminToken}`
+  }
+});
+const records = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    'https://api.horsetrust.com/api/admin/vet-records/pending',
+    headers={'Authorization': f'Bearer {admin_token}'}
+)
+records = response.json()
+```
+</CodeGroup>
+
+Retrieves all veterinary records awaiting validation, sorted by creation date (oldest first).
+
+**Endpoint:** `GET /api/admin/vet-records/pending`
+
+### Response
+
+<ResponseField name="success" type="boolean" required>
+  Indicates request success
+</ResponseField>
+
+<ResponseField name="data" type="array" required>
+  Array of pending vet records with populated horse information
+  
+  <ResponseField name="_id" type="string">
+    Vet record ID
+  </ResponseField>
+  
+  <ResponseField name="horse_id" type="object">
+    Populated horse object
+    
+    <ResponseField name="_id" type="string">
+      Horse ID
+    </ResponseField>
+    
+    <ResponseField name="name" type="string">
+      Horse name
+    </ResponseField>
+    
+    <ResponseField name="breed" type="string">
+      Horse breed
+    </ResponseField>
+    
+    <ResponseField name="seller_id" type="string">
+      Owner/seller ID
+    </ResponseField>
+  </ResponseField>
+  
+  <ResponseField name="record_type" type="string">
+    Type of record (e.g., "vaccination", "health_check")
+  </ResponseField>
+  
+  <ResponseField name="document_url" type="string">
+    URL to uploaded veterinary document
+  </ResponseField>
+  
+  <ResponseField name="validation_status" type="string">
+    Current status (will be "pending")
+  </ResponseField>
+  
+  <ResponseField name="created_at" type="string">
+    Record creation timestamp
+  </ResponseField>
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "60d5f7e8f8d9a72e3c8b9999",
+      "horse_id": {
+        "_id": "60d5f7e8f8d9a72e3c8b8888",
+        "name": "Thunder",
+        "breed": "Thoroughbred",
+        "seller_id": "60d5f7e8f8d9a72e3c8b4567"
+      },
+      "record_type": "vaccination",
+      "document_url": "https://storage.horsetrust.com/vet-docs/abc123.pdf",
+      "validation_status": "pending",
+      "notes": "Annual vaccination record",
+      "created_at": "2024-02-28T09:15:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+## Validate Vet Record
+
+<CodeGroup>
+```bash cURL (Validate)
+curl -X PUT https://api.horsetrust.com/api/admin/vet-records/60d5f7e8f8d9a72e3c8b9999/validate \
+  -H "Authorization: Bearer <admin_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "validate"
+  }'
+```
+
+```bash cURL (Reject)
+curl -X PUT https://api.horsetrust.com/api/admin/vet-records/60d5f7e8f8d9a72e3c8b9999/validate \
+  -H "Authorization: Bearer <admin_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "reject",
+    "rejection_reason": "Document appears to be expired"
+  }'
+```
+
+```javascript Node.js
+// Validate record
+const response = await fetch(
+  `https://api.horsetrust.com/api/admin/vet-records/${recordId}/validate`,
+  {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${adminToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      action: 'validate'
+    })
+  }
+);
+
+// Reject record
+const response = await fetch(
+  `https://api.horsetrust.com/api/admin/vet-records/${recordId}/validate`,
+  {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${adminToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      action: 'reject',
+      rejection_reason: 'Document appears to be expired'
+    })
+  }
+);
+```
+
+```python Python
+import requests
+
+# Validate record
+response = requests.put(
+    f'https://api.horsetrust.com/api/admin/vet-records/{record_id}/validate',
+    headers={
+        'Authorization': f'Bearer {admin_token}',
+        'Content-Type': 'application/json'
+    },
+    json={'action': 'validate'}
+)
+
+# Reject record
+response = requests.put(
+    f'https://api.horsetrust.com/api/admin/vet-records/{record_id}/validate',
+    headers={
+        'Authorization': f'Bearer {admin_token}',
+        'Content-Type': 'application/json'
+    },
+    json={
+        'action': 'reject',
+        'rejection_reason': 'Document appears to be expired'
+    }
+)
+```
+</CodeGroup>
+
+Validate or reject a veterinary record submission.
+
+**Endpoint:** `PUT /api/admin/vet-records/:id/validate`
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Vet record ID (MongoDB ObjectId)
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="action" type="string" required>
+  Action to perform: `"validate"` or `"reject"`
+</ParamField>
+
+<ParamField body="rejection_reason" type="string">
+  Required when action is "reject". Reason for rejection
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean" required>
+  Indicates request success
+</ResponseField>
+
+<ResponseField name="data" type="object" required>
+  Updated vet record object
+  
+  <ResponseField name="validation_status" type="string">
+    Updated status: "validated" or "rejected"
+  </ResponseField>
+  
+  <ResponseField name="validated_by" type="string">
+    Admin user ID who performed validation (validate only)
+  </ResponseField>
+  
+  <ResponseField name="validated_at" type="string">
+    Timestamp of validation (validate only)
+  </ResponseField>
+  
+  <ResponseField name="rejection_reason" type="string">
+    Reason for rejection (reject only)
+  </ResponseField>
+</ResponseField>
+
+### Example Response (Validated)
+
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "60d5f7e8f8d9a72e3c8b9999",
+    "horse_id": "60d5f7e8f8d9a72e3c8b8888",
+    "record_type": "vaccination",
+    "document_url": "https://storage.horsetrust.com/vet-docs/abc123.pdf",
+    "validation_status": "validated",
+    "validated_by": "60d5f7e8f8d9a72e3c8b1234",
+    "validated_at": "2024-03-05T14:45:00.000Z",
+    "rejection_reason": null
+  }
+}
+```
+
+### Example Response (Rejected)
+
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "60d5f7e8f8d9a72e3c8b9999",
+    "horse_id": "60d5f7e8f8d9a72e3c8b8888",
+    "record_type": "vaccination",
+    "document_url": "https://storage.horsetrust.com/vet-docs/abc123.pdf",
+    "validation_status": "rejected",
+    "rejection_reason": "Document appears to be expired"
+  }
+}
+```
+
+### Error Responses
+
+<ResponseField name="400 Bad Request">
+  Invalid action parameter
+  ```json
+  {
+    "success": false,
+    "message": "action must be 'validate' or 'reject'"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="404 Not Found">
+  Vet record not found
+  ```json
+  {
+    "success": false,
+    "message": "Vet record not found"
+  }
+  ```
+</ResponseField>
+
+---
+
+## Delete Horse Listing
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE https://api.horsetrust.com/api/admin/horses/60d5f7e8f8d9a72e3c8b8888 \
+  -H "Authorization: Bearer <admin_token>"
+```
+
+```javascript Node.js
+const response = await fetch(
+  `https://api.horsetrust.com/api/admin/horses/${horseId}`,
+  {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${adminToken}`
+    }
+  }
+);
+const result = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.delete(
+    f'https://api.horsetrust.com/api/admin/horses/{horse_id}',
+    headers={'Authorization': f'Bearer {admin_token}'}
+)
+result = response.json()
+```
+</CodeGroup>
+
+Permanently delete a horse listing and all associated veterinary records. This is a destructive operation that cannot be undone.
+
+**Endpoint:** `DELETE /api/admin/horses/:id`
+
+<Warning>
+This performs a hard delete, removing the horse listing and all related vet records from the database permanently. Use with caution.
+</Warning>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Horse listing ID (MongoDB ObjectId)
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean" required>
+  Indicates request success
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  Confirmation message
+</ResponseField>
+
+### Example Response
+
+```json
+{
+  "success": true,
+  "message": "Listing deleted by admin"
+}
+```
+
+### Use Cases
+
+- Remove fraudulent or inappropriate listings
+- Delete duplicate entries
+- Remove horses that violate platform policies
+- Clean up test data
+
+---
+
+## Error Handling
+
+All admin endpoints follow consistent error response patterns:
+
+### 401 Unauthorized
+Missing or invalid authentication token:
+```json
+{
+  "success": false,
+  "message": "Authentication required"
+}
+```
+
+### 403 Forbidden
+Valid user but not an admin:
+```json
+{
+  "success": false,
+  "message": "Access denied"
+}
+```
+
+### 500 Server Error
+Internal server error:
+```json
+{
+  "success": false,
+  "message": "Server error"
+}
+```
+
+---
+
+## Security Best Practices
+
+<Card title="Admin Token Security" icon="shield-check">
+  - Store admin tokens securely (never in client-side code)
+  - Use environment variables for token storage
+  - Implement token rotation policies
+  - Log all admin actions for audit trails
+</Card>
+
+<Card title="Action Verification" icon="check-double">
+  - Verify seller/record details before approval/rejection
+  - Provide clear rejection reasons for transparency
+  - Review documents thoroughly before validation
+  - Confirm destructive operations (deletes) before execution
+</Card>
+
+<Card title="Access Monitoring" icon="eye">
+  - Monitor admin API usage patterns
+  - Set up alerts for unusual activity
+  - Regular audit of admin account access
+  - Implement rate limiting for admin endpoints
+</Card>
+
+---
+
+## Related Endpoints
+
+<CardGroup cols={2}>
+  <Card title="User Management" icon="users" href="/api/users/overview">
+    View and manage user accounts
+  </Card>
+  
+  <Card title="Horse Listings" icon="horse" href="/api/horses/overview">
+    Browse and manage horse listings
+  </Card>
+  
+  <Card title="Vet Records" icon="file-medical" href="/api/vet-records/overview">
+    Public vet record endpoints
+  </Card>
+  
+  <Card title="Authentication" icon="key" href="/api/auth/overview">
+    User and admin authentication
+  </Card>
+</CardGroup>

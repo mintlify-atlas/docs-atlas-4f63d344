@@ -1,0 +1,150 @@
+---
+title: Introduction
+description: Welcome to Horse Trust - A secure platform for buying and selling horses with blockchain-inspired transparency
+---
+
+# Welcome to Horse Trust
+
+Horse Trust is a modern web application designed to revolutionize the horse marketplace by providing a secure, transparent platform for buying and selling horses. Built with cutting-edge technologies, the platform ensures trust and authenticity in every transaction.
+
+## What is Horse Trust?
+
+Horse Trust is a full-stack web application that connects horse sellers with potential buyers while maintaining high security standards and user verification. The platform features:
+
+<CardGroup cols={2}>
+  <Card title="Secure Authentication" icon="shield-halved">
+    JWT-based authentication with bcrypt password hashing and role-based access control
+  </Card>
+  <Card title="Real-time Chat" icon="comments">
+    Socket.io powered messaging system for direct communication between buyers and sellers
+  </Card>
+  <Card title="Verified Sellers" icon="badge-check">
+    Identity verification system with document validation and selfie confirmation
+  </Card>
+  <Card title="Rich Media Listings" icon="images">
+    Support for multiple photos, videos with automatic YouTube/Vimeo embedding, and detailed horse information
+  </Card>
+</CardGroup>
+
+## Key Features
+
+### For Sellers
+
+- **Horse Registration**: Create detailed listings with breed, age, discipline, pedigree, and location
+- **Media Management**: Upload minimum 3 photos (with cover image selection) and training/competition videos
+- **Veterinary Records**: Attach and manage veterinary documents and health records
+- **Seller Verification**: Complete identity verification to earn verified seller badges
+- **Real-time Messaging**: Communicate directly with interested buyers
+
+### For Buyers
+
+- **Advanced Search**: Filter horses by breed, discipline, location, and price range
+- **Full-text Search**: Find horses using natural language queries in Spanish
+- **Secure Messaging**: Chat with sellers in real-time with typing indicators
+- **Detailed Listings**: View comprehensive information including photos, videos, and location data
+
+### For Administrators
+
+- **Seller Verification**: Review and approve seller identity documents
+- **Content Moderation**: Manage listings and ensure platform quality
+- **User Management**: Control user accounts and access levels
+
+## Technology Stack
+
+<Note>
+  Horse Trust is built as a modern monorepo with separate client and server applications.
+</Note>
+
+### Frontend
+- **Next.js 16** with React 19 for server-side rendering
+- **TypeScript** for type safety
+- **Tailwind CSS 4** for modern styling
+- **Lucide React** for icons
+
+### Backend
+- **Express.js 5** for RESTful API
+- **Socket.io 4.8** for real-time WebSocket communication
+- **MongoDB** with Mongoose ODM
+- **JWT** for authentication
+- **bcrypt** for password hashing
+- **Helmet** and rate limiting for security
+
+### Infrastructure
+- **Node.js 24.13.0** runtime
+- **TypeScript** across the stack
+- **Git** for version control
+
+## Platform Architecture
+
+The platform follows a clean separation of concerns:
+
+```typescript
+// Server-side API structure
+app.use("/api/auth", authLimiter, authRoutes);    // Authentication endpoints
+app.use("/api/horses", horseRoutes);              // Horse CRUD operations
+app.use("/api/admin", adminRoutes);               // Admin panel
+app.use("/api/chat", chatRoutes);                 // Chat/messaging
+app.use("/health/db", databaseRoutes);            // Database health checks
+```
+
+```typescript
+// Client-side Next.js App Router structure
+/app
+  /page.tsx                    // Landing page
+  /login/page.tsx              // Login page
+  /registro/page.tsx           // Registration
+  /dashboard/page.tsx          // User dashboard
+  /marketplace/page.tsx        // Horse listings
+  /marketplace/[id]/page.tsx   // Individual horse details
+  /registro-caballo/page.tsx   // Horse registration form
+```
+
+## Security Features
+
+<CardGroup cols={2}>
+  <Card title="Rate Limiting" icon="gauge-high">
+    Global rate limiting (100 req/15min) and strict auth rate limiting (10 req/15min)
+  </Card>
+  <Card title="CORS Protection" icon="globe">
+    Configurable CORS with credential support and origin validation
+  </Card>
+  <Card title="Helmet Security" icon="helmet-safety">
+    HTTP security headers to prevent common vulnerabilities
+  </Card>
+  <Card title="JWT Tokens" icon="key">
+    Secure token-based authentication with 10-day expiration
+  </Card>
+</CardGroup>
+
+## Database Models
+
+The platform uses MongoDB with three primary models:
+
+### User Model
+- Email/password authentication with bcrypt hashing
+- Role-based access (admin/seller)
+- Profile information and verification status
+- Seller profile with identity documents
+
+### Horse Model
+- Comprehensive horse information (name, age, breed, discipline, pedigree)
+- Location data with coordinates
+- Photo array (minimum 3 required) with cover image support
+- Video array with automatic embed URL generation
+- Status management (active, sold, paused, draft)
+- Full-text search indexing
+
+### Veterinary Records
+- Conversation management for vet consultations
+- Message threading with read status
+- Document attachments
+
+## Getting Started
+
+Ready to dive in? Head over to the [Quickstart Guide](/quickstart) to set up your development environment and run the Horse Trust platform locally.
+
+For a deeper understanding of the system architecture, check out the [Architecture Documentation](/architecture).
+
+<Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+  Get up and running with Horse Trust in minutes
+</Card>

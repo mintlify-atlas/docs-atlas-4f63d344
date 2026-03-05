@@ -1,0 +1,213 @@
+---
+title: 'Update Seller Profile'
+api: 'PUT /api/auth/seller-profile'
+description: 'Update seller verification documents and initiate verification process'
+---
+
+## Endpoint
+
+```
+PUT /api/auth/seller-profile
+```
+
+## Authentication
+
+**Required.** Must be authenticated as a seller. Include a valid JWT token in the Authorization header.
+
+```
+Authorization: Bearer <token>
+```
+
+## Request Body
+
+<ParamField body="identity_document" type="string" required>
+  URL or identifier for the seller's identity document (e.g., government-issued ID, passport). Cannot be empty.
+</ParamField>
+
+<ParamField body="selfie_url" type="string" required>
+  Valid URL to the seller's selfie image for identity verification. Must be a valid URL format.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates whether the profile update was successful.
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message describing the result.
+</ResponseField>
+
+<ResponseField name="user" type="object">
+  Updated user object with complete profile information (password hash is excluded).
+  
+  <ResponseField name="_id" type="string">
+    User's unique identifier.
+  </ResponseField>
+  
+  <ResponseField name="email" type="string">
+    User's email address.
+  </ResponseField>
+  
+  <ResponseField name="role" type="string">
+    User's role (will be "seller").
+  </ResponseField>
+  
+  <ResponseField name="full_name" type="string">
+    User's full name.
+  </ResponseField>
+  
+  <ResponseField name="phone" type="string">
+    User's phone number in international format.
+  </ResponseField>
+  
+  <ResponseField name="seller_profile" type="object">
+    Updated seller profile with new verification documents.
+    
+    <ResponseField name="identity_document" type="string">
+      The newly uploaded identity document URL or identifier.
+    </ResponseField>
+    
+    <ResponseField name="selfie_url" type="string">
+      The newly uploaded selfie URL.
+    </ResponseField>
+    
+    <ResponseField name="verification_status" type="string">
+      Will be set to "pending" after this update.
+    </ResponseField>
+    
+    <ResponseField name="is_verified_badge" type="boolean">
+      Whether the seller has a verified badge.
+    </ResponseField>
+  </ResponseField>
+  
+  <ResponseField name="created_at" type="string">
+    ISO 8601 timestamp of when the account was created.
+  </ResponseField>
+  
+  <ResponseField name="updated_at" type="string">
+    ISO 8601 timestamp of when the account was last updated.
+  </ResponseField>
+</ResponseField>
+
+## Example Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X PUT https://api.horsetrust.com/api/auth/seller-profile \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "identity_document": "https://storage.example.com/docs/id-987654.pdf",
+    "selfie_url": "https://storage.example.com/selfies/selfie-987654.jpg"
+  }'
+```
+
+```javascript JavaScript/TypeScript
+const token = localStorage.getItem('authToken');
+
+const response = await fetch('https://api.horsetrust.com/api/auth/seller-profile', {
+  method: 'PUT',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    identity_document: 'https://storage.example.com/docs/id-987654.pdf',
+    selfie_url: 'https://storage.example.com/selfies/selfie-987654.jpg'
+  })
+});
+
+const data = await response.json();
+
+if (data.success) {
+  console.log('Profile updated. Status:', data.user.seller_profile.verification_status);
+}
+```
+
+</CodeGroup>
+
+## Example Response
+
+```json 200 Success
+{
+  "success": true,
+  "message": "Seller profile updated. Awaiting verification.",
+  "user": {
+    "_id": "507f1f77bcf86cd799439011",
+    "email": "seller@example.com",
+    "role": "seller",
+    "full_name": "John Smith",
+    "phone": "+5491112345678",
+    "is_email_verified": false,
+    "is_phone_verified": false,
+    "seller_profile": {
+      "identity_document": "https://storage.example.com/docs/id-987654.pdf",
+      "selfie_url": "https://storage.example.com/selfies/selfie-987654.jpg",
+      "verification_status": "pending",
+      "is_verified_badge": false
+    },
+    "is_active": true,
+    "created_at": "2026-03-01T08:00:00.000Z",
+    "updated_at": "2026-03-05T10:45:00.000Z"
+  }
+}
+```
+
+## Error Responses
+
+<ResponseField name="400" type="error">
+  **Bad Request** - Validation error.
+  
+  ```json
+  {
+    "success": false,
+    "message": "Valid selfie URL required"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="401" type="error">
+  **Unauthorized** - Missing or invalid authentication token.
+  
+  ```json
+  {
+    "success": false,
+    "message": "Authentication required"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="403" type="error">
+  **Forbidden** - User is not a seller (admin accounts cannot update seller profile).
+  
+  ```json
+  {
+    "success": false,
+    "message": "Seller role required"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="500" type="error">
+  **Server Error** - Internal server error.
+  
+  ```json
+  {
+    "success": false,
+    "message": "Server error"
+  }
+  ```
+</ResponseField>
+
+## Notes
+
+- This endpoint is only accessible to users with the "seller" role
+- Both `identity_document` and `selfie_url` must be provided
+- The `selfie_url` must be a valid URL format
+- After updating, the `verification_status` is automatically set to "pending"
+- Documents should be uploaded to a storage service (e.g., AWS S3, Cloudinary) before calling this endpoint
+- An admin will review the submitted documents and update the verification status
+- Sellers can update their documents multiple times (e.g., if rejected, they can resubmit)
+- The verification process is asynchronous - sellers should poll the `/api/auth/me` endpoint or wait for notifications to check verification status

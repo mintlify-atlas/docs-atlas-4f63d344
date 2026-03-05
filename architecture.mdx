@@ -1,0 +1,1101 @@
+---
+title: Architecture
+description: Comprehensive overview of the Horse Trust platform architecture, tech stack, and system design
+---
+
+# Architecture Overview
+
+Horse Trust is built as a modern, full-stack web application following a monorepo structure with clear separation between client and server applications. This document provides a comprehensive overview of the system architecture, technology choices, and how different components interact.
+
+## System Architecture Diagram
+
+```mermaid
+graph TB
+    Client[Next.js Client<br/>Port 8030]
+    Server[Express Server<br/>Port 8031]
+    Socket[Socket.io<br/>WebSocket]
+    MongoDB[(MongoDB<br/>Atlas/Local)]
+    Cloudinary[Cloudinary<br/>Image CDN]
+    
+    Client -->|HTTP/REST| Server
+    Client -->|WebSocket| Socket
+    Server --> MongoDB
+    Socket --> MongoDB
+    Client -->|Image Upload| Cloudinary
+    Server -->|JWT Auth| Client
+    
+    style Client fill:#61dafb
+    style Server fill:#90ee90
+    style Socket fill:#010101
+    style MongoDB fill:#4db33d
+    style Cloudinary fill:#3448c5
+```
+
+## Monorepo Structure
+
+The project follows a monorepo architecture with clear separation of concerns:
+
+```bash
+S02-26-Equipo-33-Web-App/
+├── client/                      # Next.js 16 frontend application
+│   ├── app/                     # Next.js App Router
+│   │   ├── page.tsx            # Landing page
+│   │   ├── layout.tsx          # Root layout
+│   │   ├── login/              # Authentication pages
+│   │   ├── registro/           # User registration
+│   │   ├── dashboard/          # User dashboard
+│   │   ├── marketplace/        # Horse listings
+│   │   │   ├── page.tsx       # Marketplace grid
+│   │   │   └── [id]/page.tsx  # Individual horse details
+│   │   ├── registro-caballo/  # Horse registration
+│   │   ├── actions/            # Server Actions
+│   │   │   ├── auth.ts        # Auth actions (login, register, logout)
+│   │   │   └── horses.ts      # Horse CRUD actions
+│   │   └── utils/
+│   │       └── apiFetch.ts    # API client with auto-reconnect
+│   ├── component/              # React components
+│   │   ├── home/
+│   │   │   ├── HeroSection.tsx
+│   │   │   ├── FeaturedHorses.tsx
+│   │   │   └── SecuritySection.tsx
+│   │   ├── marketplace/
+│   │   │   └── FilterSideBar.tsx
+│   │   ├── layout/
+│   │   │   ├── Header.tsx
+│   │   │   └── Footer.tsx
+│   │   └── GetServerData/
+│   ├── public/                 # Static assets
+│   ├── types/                  # TypeScript type definitions
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── tailwind.config.js
+│   └── next.config.ts
+│
+├── server/                     # Express.js backend application
+│   ├── src/
+│   │   ├── index.ts           # Server entry point with Socket.io
+│   │   ├── app.ts             # Express app configuration
+│   │   ├── config/
+│   │   │   └── db.ts          # MongoDB connection
+│   │   ├── models/            # Mongoose models
+│   │   │   ├── User.ts        # User schema with auth
+│   │   │   ├── Horse.ts       # Horse schema with media
+│   │   │   └── VetRecord.ts   # Veterinary records & chat
+│   │   ├── controllers/       # Request handlers
+│   │   ├── routes/            # API routes
+│   │   │   ├── auth.ts        # /api/auth/*
+│   │   │   ├── horses.ts      # /api/horses/*
+│   │   │   ├── admin.ts       # /api/admin/*
+│   │   │   ├── chat.ts        # /api/chat/*
+│   │   │   └── dbhealth.ts    # /health/db/*
+│   │   ├── middleware/        # Express middleware
+│   │   └── types/             # TypeScript types
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── nodemon.json
+│
+├── CONTRIBUTING.md
+└── README.md
+```
+
+## Technology Stack
+
+### Frontend Technologies
+
+<CardGroup cols={2}>
+  <Card title="Next.js 16" icon="react">
+    **React framework with App Router**
+    
+    - Server-side rendering (SSR)
+    - Server Actions for data mutations
+    - File-based routing
+    - Automatic code splitting
+    - Built-in optimization
+  </Card>
+  
+  <Card title="React 19" icon="react">
+    **Latest React features**
+    
+    - Improved concurrent rendering
+    - Server Components
+    - Enhanced hooks
+    - Better TypeScript integration
+  </Card>
+  
+  <Card title="TypeScript 5" icon="typescript">
+    **Type-safe JavaScript**
+    
+    - Static type checking
+    - Enhanced IDE support
+    - Better refactoring
+    - Compile-time error detection
+  </Card>
+  
+  <Card title="Tailwind CSS 4" icon="palette">
+    **Utility-first CSS framework**
+    
+    - Rapid UI development
+    - Dark mode support
+    - Responsive design
+    - Custom design system
+  </Card>
+</CardGroup>
+
+**Additional Frontend Libraries:**
+- **lucide-react** (v0.575.0): Modern icon library
+- **@tailwindcss/postcss** (v4): PostCSS integration
+
+### Backend Technologies
+
+<CardGroup cols={2}>
+  <Card title="Express.js 5" icon="server">
+    **Fast, minimalist web framework**
+    
+    - RESTful API design
+    - Middleware ecosystem
+    - Route handling
+    - Error management
+  </Card>
+  
+  <Card title="Socket.io 4.8" icon="bolt">
+    **Real-time bidirectional communication**
+    
+    - WebSocket protocol
+    - Event-based messaging
+    - Room-based broadcasting
+    - Automatic reconnection
+  </Card>
+  
+  <Card title="MongoDB + Mongoose" icon="database">
+    **NoSQL database with ODM**
+    
+    - Flexible schema design
+    - Document relationships
+    - Query building
+    - Validation and middleware
+  </Card>
+  
+  <Card title="JWT Authentication" icon="key">
+    **Secure token-based auth**
+    
+    - Stateless authentication
+    - HTTP-only cookies
+    - 10-day token expiration
+    - bcrypt password hashing
+  </Card>
+</CardGroup>
+
+**Additional Backend Libraries:**
+- **bcryptjs** (v3.0.3): Password hashing with 12 salt rounds
+- **helmet** (v8.1.0): Security headers
+- **morgan** (v1.10.1): HTTP request logging
+- **express-rate-limit** (v8.2.1): Rate limiting
+- **express-validator** (v7.3.1): Request validation
+- **dotenv** (v17.3.1): Environment variable management
+- **nodemon** (v3.1.11): Development auto-reload
+- **ts-node** (v10.9.2): TypeScript execution
+
+## Data Models
+
+### User Model
+
+The User model handles authentication and role-based access control:
+
+```typescript server/src/models/User.ts
+import { Schema, model } from "mongoose";
+import bcrypt from "bcryptjs";
+
+const sellerProfileSchema = new Schema({
+  identity_document:   { type: String },
+  selfie_url:          { type: String },
+  verification_status: { type: String, enum: ["pending", "verified", "rejected"], default: "pending" },
+  verification_method: { type: String, enum: ["manual", "automatic"] },
+  verified_at:         { type: Date },
+  verified_by:         { type: Schema.Types.ObjectId, ref: "User" },
+  rejection_reason:    { type: String },
+  is_verified_badge:   { type: Boolean, default: false },
+}, { _id: false });
+
+const userSchema = new Schema({
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  },
+  password_hash: { type: String, required: true },
+  role: { type: String, enum: ["admin", "seller"], required: true },
+  full_name: { type: String, required: true, trim: true },
+  phone: { 
+    type: String,
+    match: /^\+?[1-9][0-9]{7,14}$/  // International format
+  },
+  is_email_verified:        { type: Boolean, default: false },
+  is_phone_verified:        { type: Boolean, default: false },
+  email_verification_token: { type: String },
+  profile_picture_url:      { type: String },
+  seller_profile:           { type: sellerProfileSchema, default: null },
+  is_active:                { type: Boolean, default: true },
+  last_login:               { type: Date },
+}, {
+  timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
+});
+
+// Hash password before saving
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password_hash")) return;
+  const salt = await bcrypt.genSalt(Number(process.env.BCRYPT_SALT_ROUNDS) || 12);
+  this.password_hash = await bcrypt.hash(this.password_hash, salt);
+});
+
+// Compare password method
+userSchema.methods.comparePassword = async function (candidatePassword: string) {
+  return bcrypt.compare(candidatePassword, this.password_hash);
+};
+
+// Remove sensitive fields from JSON
+userSchema.methods.toJSON = function () {
+  const obj = this.toObject();
+  delete obj.password_hash;
+  delete obj.email_verification_token;
+  return obj;
+};
+
+export const User = model("User", userSchema);
+```
+
+**Key Features:**
+- Email validation with regex
+- Automatic password hashing with bcrypt (12 salt rounds)
+- Role-based access control (admin/seller)
+- Seller verification workflow
+- Secure JSON serialization (removes sensitive fields)
+
+### Horse Model
+
+The Horse model manages horse listings with rich media support:
+
+```typescript server/src/models/Horse.ts
+import { Schema, model } from "mongoose";
+
+const photoSchema = new Schema({
+  url:         { type: String, required: true },
+  caption:     { type: String },
+  is_cover:    { type: Boolean, default: false },
+  uploaded_at: { type: Date, default: () => new Date() },
+});
+
+const videoSchema = new Schema({
+  url:         { type: String, required: true },
+  embed_url:   { type: String },
+  video_type:  { type: String, enum: ["training", "competition", "other"], required: true },
+  title:       { type: String },
+  description: { type: String },
+  recorded_at: { type: Date, required: true },
+  uploaded_at: { type: Date, default: () => new Date() },
+});
+
+const locationSchema = new Schema({
+  country:     { type: String, required: true },
+  region:      { type: String, required: true },
+  city:        { type: String },
+  coordinates: {
+    lat: { type: Number },
+    lng: { type: Number },
+  },
+}, { _id: false });
+
+const horseSchema = new Schema({
+  seller_id:  { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  name:       { type: String, required: true, trim: true },
+  age:        { type: Number, required: true, min: 0, max: 40 },
+  breed:      { type: String, required: true, trim: true },
+  discipline: { type: String, required: true, trim: true },
+  pedigree:   { type: String },
+  location:   { type: locationSchema, required: true },
+  price:      { type: Number, min: 0 },
+  currency:   { type: String, enum: ["USD", "EUR", "ARS", "BRL", "MXN"], default: "USD" },
+  photos: {
+    type: [photoSchema],
+    validate: {
+      validator: (photos) => photos.length >= 3,
+      message: "At least 3 photos are required",
+    },
+  },
+  videos:      { type: [videoSchema], default: [] },
+  status:      { type: String, enum: ["active", "sold", "paused", "draft"], default: "draft" },
+  views_count: { type: Number, default: 0 },
+}, {
+  timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
+});
+
+// Full-text search index
+horseSchema.index(
+  { name: "text", breed: "text", discipline: "text", pedigree: "text" },
+  { default_language: "spanish" }
+);
+
+// Auto-generate embed URLs from YouTube/Vimeo
+horseSchema.pre("save", function (next) {
+  this.videos = this.videos.map((video) => {
+    if (!video.embed_url && video.url) {
+      video.embed_url = toEmbedUrl(video.url);
+    }
+    return video;
+  });
+  next();
+});
+
+function toEmbedUrl(url: string): string {
+  // YouTube: youtube.com/watch?v=ID or youtu.be/ID
+  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+  if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
+  
+  // Vimeo: vimeo.com/ID
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+  if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+  
+  return url;
+}
+
+export const Horse = model("Horse", horseSchema);
+```
+
+**Key Features:**
+- Minimum 3 photos requirement with validation
+- Automatic YouTube/Vimeo embed URL generation
+- Full-text search in Spanish
+- Geolocation support with coordinates
+- Multi-currency pricing
+- Status workflow (draft → active → sold/paused)
+- View count tracking
+
+### Veterinary Records & Chat
+
+```typescript server/src/models/VetRecord.ts
+const conversationSchema = new Schema({
+  participants: [{ type: Schema.Types.ObjectId, ref: "User", required: true }],
+  last_message: {
+    text: String,
+    sender_id: Schema.Types.ObjectId,
+    sent_at: Date,
+    is_read: Boolean,
+  },
+  created_at: { type: Date, default: Date.now },
+  updated_at: { type: Date, default: Date.now },
+});
+
+const messageSchema = new Schema({
+  conversation_id: { type: Schema.Types.ObjectId, ref: "Conversation", required: true },
+  sender_id:       { type: Schema.Types.ObjectId, ref: "User", required: true },
+  text:            { type: String, required: true },
+  is_read:         { type: Boolean, default: false },
+  sent_at:         { type: Date, default: Date.now },
+});
+
+export const Conversation = model("Conversation", conversationSchema);
+export const Message = model("Message", messageSchema);
+```
+
+## API Architecture
+
+### Express Application Setup
+
+The Express app (`server/src/app.ts`) is configured with security and middleware:
+
+```typescript server/src/app.ts
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import morgan from "morgan";
+import { rateLimit } from "express-rate-limit";
+
+const app = express();
+
+// Security headers
+app.use(helmet());
+
+// CORS configuration
+const allowedOrigins = process.env.CORS_ORIGINS.split(",");
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+}));
+
+// Body parsing
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true }));
+
+// Request logging
+if (process.env.NODE_ENV !== "test") {
+  app.use(morgan("dev"));
+}
+
+// Global rate limiter: 100 requests per 15 minutes
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { success: false, message: "Too many requests" },
+});
+app.use(limiter);
+
+// Strict auth rate limiter: 10 requests per 15 minutes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { success: false, message: "Too many auth attempts" },
+});
+
+// Routes
+app.get("/health", (req, res) => {
+  res.json({ success: true, message: "Horse Portal API is running" });
+});
+
+app.use("/health/db", databaseRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/horses", horseRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/chat", chatRoutes);
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: "Route not found" });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err.message);
+  res.status(500).json({ success: false, message: "Internal server error" });
+});
+
+export default app;
+```
+
+### API Endpoints
+
+<AccordionGroup>
+  <Accordion title="Authentication Endpoints - /api/auth">
+    **POST /api/auth/register**
+    - Register new user (seller or admin)
+    - Hashes password with bcrypt
+    - Returns JWT token
+    
+    **POST /api/auth/login**
+    - Authenticate user with email/password
+    - Returns JWT token with 10-day expiration
+    
+    **PUT /api/auth/seller-profile**
+    - Update seller verification details
+    - Requires JWT authentication
+    - Upload identity documents and selfie
+    
+    **Rate Limit:** 10 requests per 15 minutes
+  </Accordion>
+  
+  <Accordion title="Horse Endpoints - /api/horses">
+    **GET /api/horses**
+    - List all horses with pagination
+    - Filter by breed, discipline, location, price
+    - Full-text search support
+    
+    **GET /api/horses/:id**
+    - Get individual horse details
+    - Increments view count
+    - Populates seller information
+    
+    **POST /api/horses**
+    - Create new horse listing
+    - Requires JWT authentication
+    - Validates minimum 3 photos
+    - Auto-generates video embed URLs
+    
+    **PUT /api/horses/:id**
+    - Update horse listing
+    - Owner verification required
+    
+    **DELETE /api/horses/:id**
+    - Delete horse listing
+    - Owner or admin only
+  </Accordion>
+  
+  <Accordion title="Admin Endpoints - /api/admin">
+    **GET /api/admin/sellers/pending**
+    - List sellers pending verification
+    - Admin role required
+    
+    **PUT /api/admin/sellers/:id/verify**
+    - Approve or reject seller verification
+    - Admin role required
+    
+    **GET /api/admin/horses**
+    - Moderate horse listings
+    - View all listings regardless of status
+  </Accordion>
+  
+  <Accordion title="Chat Endpoints - /api/chat">
+    **GET /api/chat/conversations**
+    - List user's conversations
+    - Returns last message preview
+    
+    **GET /api/chat/conversations/:id/messages**
+    - Get conversation message history
+    - Paginated results
+    
+    **POST /api/chat/conversations**
+    - Create new conversation between users
+    
+    Note: Real-time messaging uses Socket.io (see below)
+  </Accordion>
+  
+  <Accordion title="Health Check Endpoints - /health">
+    **GET /health**
+    - Basic server health check
+    - Returns environment info
+    
+    **GET /health/db**
+    - Check MongoDB connection status
+    
+    **POST /health/db/reconnect**
+    - Manually trigger database reconnection
+    - Used by auto-retry logic in client
+  </Accordion>
+</AccordionGroup>
+
+## Socket.io Real-time Architecture
+
+The platform uses Socket.io for real-time bidirectional communication:
+
+```typescript server/src/index.ts
+import http from "http";
+import { Server as SocketServer } from "socket.io";
+import jwt from "jsonwebtoken";
+
+const httpServer = http.createServer(app);
+
+const io = new SocketServer(httpServer, {
+  cors: {
+    origin: process.env.CORS_ORIGINS.split(","),
+    credentials: true,
+  },
+});
+
+// JWT authentication middleware for Socket.io
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) {
+    return next(new Error("Authentication error: no token"));
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.user = decoded;
+    next();
+  } catch {
+    next(new Error("Authentication error: invalid token"));
+  }
+});
+
+io.on("connection", (socket) => {
+  console.log(`Socket connected: userId=${socket.user.userId}`);
+  
+  // Join user-specific room for notifications
+  socket.join(`user:${socket.user.userId}`);
+  
+  // Join conversation room
+  socket.on("join_conversation", (conversationId) => {
+    socket.join(`conv:${conversationId}`);
+  });
+  
+  // Send message
+  socket.on("send_message", async (data, ack) => {
+    try {
+      // Verify user is participant
+      const conversation = await Conversation.findOne({
+        _id: data.conversation_id,
+        participants: socket.user.userId,
+      });
+      
+      if (!conversation) {
+        return ack({ success: false, message: "Conversation not found" });
+      }
+      
+      // Save message to database
+      const message = await Message.create({
+        conversation_id: data.conversation_id,
+        sender_id: socket.user.userId,
+        text: data.text,
+        is_read: false,
+      });
+      
+      // Update conversation last_message
+      await Conversation.findByIdAndUpdate(data.conversation_id, {
+        last_message: {
+          text: data.text,
+          sender_id: socket.user.userId,
+          sent_at: message.sent_at,
+          is_read: false,
+        },
+        updated_at: new Date(),
+      });
+      
+      const populated = await message.populate("sender_id", "full_name profile_picture_url");
+      
+      // Broadcast to conversation room
+      io.to(`conv:${data.conversation_id}`).emit("new_message", populated);
+      
+      // Notify recipient
+      const recipientId = conversation.participants.find(
+        (p) => p.toString() !== socket.user.userId
+      );
+      if (recipientId) {
+        io.to(`user:${recipientId}`).emit("message_notification", {
+          conversation_id: data.conversation_id,
+          sender: socket.user.userId,
+          preview: data.text.substring(0, 60),
+        });
+      }
+      
+      ack({ success: true, data: populated });
+    } catch (err) {
+      console.error("Socket send_message error:", err);
+      ack({ success: false, message: "Error sending message" });
+    }
+  });
+  
+  // Typing indicators
+  socket.on("typing", (conversationId) => {
+    socket.to(`conv:${conversationId}`).emit("user_typing", { userId: socket.user.userId });
+  });
+  
+  socket.on("stop_typing", (conversationId) => {
+    socket.to(`conv:${conversationId}`).emit("user_stop_typing", { userId: socket.user.userId });
+  });
+  
+  socket.on("disconnect", () => {
+    console.log(`Socket disconnected: userId=${socket.user.userId}`);
+  });
+});
+
+httpServer.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Socket.io ready`);
+});
+```
+
+### Socket.io Events
+
+<CardGroup cols={2}>
+  <Card title="connection" icon="plug">
+    Client connects with JWT token in handshake auth. User joins personal room for notifications.
+  </Card>
+  
+  <Card title="join_conversation" icon="door-open">
+    User joins a specific conversation room to receive messages in real-time.
+  </Card>
+  
+  <Card title="send_message" icon="message">
+    Send a message to a conversation. Persists to DB and broadcasts to all participants.
+  </Card>
+  
+  <Card title="new_message" icon="bell">
+    Broadcast event when a new message is sent. All conversation participants receive it.
+  </Card>
+  
+  <Card title="message_notification" icon="envelope">
+    Personal notification sent to recipient's user room with message preview.
+  </Card>
+  
+  <Card title="typing" icon="keyboard">
+    Notify conversation participants that user is typing.
+  </Card>
+  
+  <Card title="user_typing" icon="ellipsis">
+    Broadcast typing indicator to other conversation participants.
+  </Card>
+  
+  <Card title="disconnect" icon="plug-circle-xmark">
+    Socket connection closed. Cleanup and logging.
+  </Card>
+</CardGroup>
+
+## Client-Side Architecture
+
+### Next.js App Router Structure
+
+The client uses Next.js 16's App Router with server-side rendering:
+
+```typescript client/app/layout.tsx
+import Header from '@/component/layout/Header';
+import Footer from '@/component/layout/Footer';
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body className="bg-background-light dark:bg-background-dark">
+        <Header />
+        {children}
+        <Footer />
+      </body>
+    </html>
+  );
+}
+```
+
+### Server Actions
+
+Next.js Server Actions handle data mutations:
+
+```typescript client/app/actions/auth.ts
+"use server";
+
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { apiFetch } from '../utils/apiFetch';
+
+export async function loginUser(email: string, password: string) {
+  const res = await apiFetch('/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error);
+  
+  // Store JWT in HTTP-only cookie
+  const cookieStore = await cookies();
+  cookieStore.set('horse_trust_token', data.token, { 
+    httpOnly: true, 
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+    path: '/',
+  });
+
+  return { success: true, data };
+}
+```
+
+### API Client with Auto-Retry
+
+The `apiFetch` utility provides automatic database reconnection:
+
+```typescript client/app/utils/apiFetch.ts
+export async function apiFetch(endpoint: string, options: RequestInit = {}) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  const url = `${apiUrl}${endpoint}`;
+
+  try {
+    let res = await fetch(url, options);
+
+    // Retry on 5xx errors with DB reconnection
+    if (!res.ok && res.status >= 500) {
+      console.log(`API failed. Attempting DB reconnect...`);
+      
+      const reconRes = await fetch(`${apiUrl}/health/reconnect`, { 
+        method: 'POST' 
+      });
+      
+      if (reconRes.ok) {
+        console.log(`DB reconnected. Retrying...`);
+        res = await fetch(url, options);
+      }
+    }
+
+    return res;
+  } catch (error) {
+    console.error(`Network error. Reconnecting...`, error);
+    await fetch(`${apiUrl}/health/reconnect`, { method: 'POST' });
+    return await fetch(url, options);
+  }
+}
+```
+
+**Key Features:**
+- Automatic retry on server errors (5xx)
+- Database reconnection for MongoDB Atlas sleep
+- Network error handling
+- Transparent to consumers
+
+## Security Architecture
+
+### Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    participant DB as MongoDB
+    
+    C->>S: POST /api/auth/register {email, password}
+    S->>S: Hash password with bcrypt (12 rounds)
+    S->>DB: Create user document
+    DB-->>S: User created
+    S->>S: Generate JWT token (10d expiration)
+    S-->>C: {token, user}
+    C->>C: Store token in HTTP-only cookie
+    
+    Note over C,DB: Subsequent requests
+    
+    C->>S: POST /api/horses (JWT in cookie)
+    S->>S: Verify JWT signature
+    S->>S: Check token expiration
+    S->>DB: Perform authorized operation
+    DB-->>S: Result
+    S-->>C: Response
+```
+
+### Security Layers
+
+<Steps>
+  <Step title="Transport Security">
+    - HTTPS in production
+    - Secure WebSocket connections (wss://)
+    - HTTP-only cookies prevent XSS attacks
+  </Step>
+  
+  <Step title="Application Security">
+    - Helmet.js for security headers
+    - CORS with origin validation
+    - Rate limiting (global + auth-specific)
+    - Request validation with express-validator
+  </Step>
+  
+  <Step title="Authentication Security">
+    - JWT with RS256 or HS256 signing
+    - bcrypt password hashing (12 rounds)
+    - Token expiration (10 days)
+    - Secure cookie storage (httpOnly, secure, sameSite)
+  </Step>
+  
+  <Step title="Database Security">
+    - MongoDB authentication
+    - Input sanitization via Mongoose
+    - Schema validation
+    - Index optimization for performance
+  </Step>
+</Steps>
+
+### Rate Limiting Strategy
+
+```typescript
+// Global rate limiter
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minutes
+  max: 100,                   // 100 requests per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many requests" },
+});
+
+// Strict auth rate limiter
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minutes
+  max: 10,                    // 10 auth attempts per window
+  message: { success: false, message: "Too many auth attempts" },
+});
+```
+
+## Deployment Architecture
+
+### Environment Configuration
+
+<Tabs>
+  <Tab title="Development">
+    ```bash
+    # Server
+    PORT=8031
+    NODE_ENV=development
+    MONGO_URI=mongodb://localhost:27017/horsetrust
+    JWT_SECRET=dev-secret-change-in-production
+    CORS_ORIGINS=http://localhost:8030
+    
+    # Client
+    NEXT_PUBLIC_API_URL=http://localhost:8031/api
+    ```
+  </Tab>
+  
+  <Tab title="Production">
+    ```bash
+    # Server
+    PORT=3000
+    NODE_ENV=production
+    MONGO_URI=mongodb+srv://user:pass@cluster.mongodb.net/horsetrust
+    JWT_SECRET=<strong-random-secret>
+    CORS_ORIGINS=https://horsetrust.com,https://www.horsetrust.com
+    
+    # Client
+    NEXT_PUBLIC_API_URL=https://api.horsetrust.com/api
+    ```
+  </Tab>
+</Tabs>
+
+### Recommended Deployment Stack
+
+<CardGroup cols={2}>
+  <Card title="Vercel" icon="cloud">
+    **Frontend Hosting**
+    
+    - Automatic Next.js optimization
+    - Edge network CDN
+    - Serverless functions
+    - Preview deployments
+  </Card>
+  
+  <Card title="Railway / Render" icon="train">
+    **Backend Hosting**
+    
+    - Node.js runtime support
+    - WebSocket support for Socket.io
+    - Environment variable management
+    - Auto-scaling
+  </Card>
+  
+  <Card title="MongoDB Atlas" icon="database">
+    **Database Hosting**
+    
+    - Managed MongoDB cluster
+    - Automatic backups
+    - Global distribution
+    - Free tier available
+  </Card>
+  
+  <Card title="Cloudinary" icon="image">
+    **Media Storage**
+    
+    - Image/video CDN
+    - Automatic optimization
+    - Transformation API
+    - Free tier available
+  </Card>
+</CardGroup>
+
+## Performance Optimization
+
+### Database Indexing
+
+```typescript
+// User indexes
+userSchema.index({ email: 1 }, { unique: true });
+
+// Horse indexes
+horseSchema.index({ seller_id: 1 });
+horseSchema.index({ status: 1 });
+horseSchema.index({ "location.country": 1, "location.region": 1 });
+horseSchema.index(
+  { name: "text", breed: "text", discipline: "text", pedigree: "text" },
+  { default_language: "spanish" }
+);
+
+// Conversation indexes
+conversationSchema.index({ participants: 1 });
+conversationSchema.index({ updated_at: -1 });
+
+// Message indexes
+messageSchema.index({ conversation_id: 1, sent_at: -1 });
+```
+
+### Caching Strategy
+
+<Note>
+  Next.js automatically caches Server Components and API responses. Use `revalidatePath()` to invalidate cache after mutations.
+</Note>
+
+```typescript
+import { revalidatePath } from 'next/cache';
+
+export async function createHorse(horseData) {
+  // ... create horse ...
+  
+  // Invalidate relevant pages
+  revalidatePath('/marketplace');
+  revalidatePath('/dashboard');
+  revalidatePath(`/marketplace/${newHorse.id}`);
+}
+```
+
+## Monitoring and Logging
+
+### Server-side Logging
+
+```typescript
+// Morgan HTTP logging
+app.use(morgan('dev'));
+
+// Custom error logging
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err.message);
+  console.error('Stack:', err.stack);
+  // Send to error tracking service (Sentry, etc.)
+  res.status(500).json({ success: false, message: 'Internal server error' });
+});
+```
+
+### Client-side Error Handling
+
+```typescript
+try {
+  const result = await createHorse(horseData);
+  if (!result.success) {
+    // Show user-friendly error
+    showErrorToast(result.error);
+  }
+} catch (error) {
+  console.error('Unexpected error:', error);
+  // Report to error tracking
+  showErrorToast('An unexpected error occurred');
+}
+```
+
+## Scalability Considerations
+
+<CardGroup cols={2}>
+  <Card title="Horizontal Scaling" icon="arrows-left-right">
+    - Stateless Express servers behind load balancer
+    - Socket.io adapter (Redis) for multi-server WebSocket
+    - MongoDB replica sets for read scaling
+  </Card>
+  
+  <Card title="Vertical Scaling" icon="arrows-up-down">
+    - Increase server resources (CPU, RAM)
+    - MongoDB sharding for large datasets
+    - CDN for static assets (Cloudinary)
+  </Card>
+  
+  <Card title="Caching" icon="database">
+    - Redis for session storage
+    - Browser caching with proper headers
+    - Next.js automatic static optimization
+  </Card>
+  
+  <Card title="Database Optimization" icon="gauge-high">
+    - Compound indexes for complex queries
+    - Query projection to limit fields
+    - Pagination for large result sets
+    - Connection pooling
+  </Card>
+</CardGroup>
+
+## Contributing to the Architecture
+
+When contributing to Horse Trust, follow these architectural principles:
+
+1. **Separation of Concerns**: Keep client and server code separate
+2. **Type Safety**: Use TypeScript for all new code
+3. **Security First**: Validate all inputs, authenticate all requests
+4. **RESTful Design**: Follow REST conventions for API endpoints
+5. **Real-time When Needed**: Use Socket.io only for truly real-time features
+6. **Error Handling**: Always provide meaningful error messages
+7. **Documentation**: Document complex logic and architectural decisions
+
+For detailed contribution guidelines, see the [CONTRIBUTING.md](https://github.com/No-Country-simulation/S02-26-Equipo-33-Web-App/blob/main/CONTRIBUTING.md) file.
+
+---
+
+<Card title="Back to Quickstart" icon="arrow-left" href="/quickstart">
+  Return to the quickstart guide to get the platform running
+</Card>

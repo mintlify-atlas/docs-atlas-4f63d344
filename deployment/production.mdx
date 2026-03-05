@@ -1,0 +1,673 @@
+---
+title: Production Deployment
+description: Guide for deploying Horse Trust platform to production environments
+---
+
+This guide covers best practices and considerations for deploying the Horse Trust platform to production.
+
+## Pre-Deployment Checklist
+
+Before deploying to production, ensure you have completed the following:
+
+<Steps>
+  <Step title="Security Audit">
+    <Check>Environment variables are properly secured</Check>
+    <Check>JWT secrets are strong and unique</Check>
+    <Check>CORS origins are restricted to specific domains</Check>
+    <Check>Rate limiting is configured</Check>
+    <Check>Helmet.js security headers are enabled</Check>
+  </Step>
+  
+  <Step title="Database Preparation">
+    <Check>MongoDB production cluster is set up</Check>
+    <Check>Database backups are configured</Check>
+    <Check>Connection pooling is optimized</Check>
+    <Check>Database indexes are created</Check>
+  </Step>
+  
+  <Step title="Code Quality">
+    <Check>All tests are passing</Check>
+    <Check>Linting errors are resolved</Check>
+    <Check>TypeScript compilation is successful</Check>
+    <Check>Dependencies are up to date</Check>
+  </Step>
+  
+  <Step title="Performance">
+    <Check>Build optimization is complete</Check>
+    <Check>Images are optimized</Check>
+    <Check>API response times are acceptable</Check>
+    <Check>Socket.io performance is tested</Check>
+  </Step>
+</Steps>
+
+## Environment Configuration
+
+### Production Environment Variables
+
+<Warning>
+  Never use development settings in production. Update all configuration values.
+</Warning>
+
+#### Server (Backend) Production `.env`
+
+```bash
+# ================================
+# PRODUCTION SERVER CONFIGURATION
+# ================================
+PORT=8031
+NODE_ENV=production
+
+# ================================
+# DATABASE
+# ================================
+MONGO_URI=mongodb+srv://prod-user:STRONG-PASSWORD@production-cluster.mongodb.net/horsetrust_prod?retryWrites=true&w=majority
+
+# ================================
+# AUTHENTICATION (Use strong secrets!)
+# ================================
+JWT_SECRET=GENERATE-STRONG-RANDOM-SECRET-KEY-HERE
+JWT_EXPIRES_IN=7d
+BCRYPT_SALT_ROUNDS=12
+
+# ================================
+# CORS (Specific domains only!)
+# ================================
+CORS_ORIGINS=https://horsetrust.com,https://www.horsetrust.com,https://app.horsetrust.com
+```
+
+#### Client (Frontend) Production `.env.production`
+
+```bash
+# ==========================================
+# PRODUCTION CLIENT CONFIGURATION
+# ==========================================
+
+# API URL - Production backend
+NEXT_PUBLIC_API_URL=https://api.horsetrust.com/api
+
+# Cloudinary
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=di2agiylz
+NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=horse_trust_uploads
+```
+
+## Deployment Options
+
+### Option 1: Vercel (Frontend) + Railway/Render (Backend)
+
+Recommended for easy deployment with minimal configuration.
+
+#### Deploy Frontend to Vercel
+
+<Steps>
+  <Step title="Install Vercel CLI">
+    ```bash
+    npm install -g vercel
+    ```
+  </Step>
+  
+  <Step title="Navigate to Client Directory">
+    ```bash
+    cd client
+    ```
+  </Step>
+  
+  <Step title="Deploy">
+    ```bash
+    vercel --prod
+    ```
+    
+    Or connect your GitHub repository through the [Vercel Dashboard](https://vercel.com):
+    
+    1. Import your repository
+    2. Configure project settings:
+       - Framework: Next.js
+       - Root Directory: `client`
+       - Build Command: `npm run build`
+       - Output Directory: `.next`
+    3. Add environment variables in Vercel dashboard
+    4. Deploy
+  </Step>
+  
+  <Step title="Configure Environment Variables">
+    In Vercel dashboard, add:
+    - `NEXT_PUBLIC_API_URL`
+    - `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`
+    - `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`
+  </Step>
+</Steps>
+
+#### Deploy Backend to Railway
+
+<Steps>
+  <Step title="Create Railway Account">
+    Sign up at [Railway.app](https://railway.app)
+  </Step>
+  
+  <Step title="Create New Project">
+    - Connect your GitHub repository
+    - Select the `server` directory as root
+  </Step>
+  
+  <Step title="Configure Build Settings">
+    ```yaml
+    # railway.json (optional)
+    {
+      "build": {
+        "builder": "NIXPACKS",
+        "buildCommand": "npm install && npm run build"
+      },
+      "deploy": {
+        "startCommand": "npm start",
+        "restartPolicyType": "ON_FAILURE",
+        "restartPolicyMaxRetries": 10
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Add Environment Variables">
+    In Railway dashboard, add all server environment variables:
+    - `PORT` (Railway auto-provides this)
+    - `NODE_ENV=production`
+    - `MONGO_URI`
+    - `JWT_SECRET`
+    - `JWT_EXPIRES_IN`
+    - `BCRYPT_SALT_ROUNDS`
+    - `CORS_ORIGINS`
+  </Step>
+  
+  <Step title="Deploy">
+    Railway will automatically deploy on git push to main branch.
+  </Step>
+</Steps>
+
+### Option 2: Docker Deployment
+
+For containerized deployments on any platform.
+
+#### Server Dockerfile
+
+```dockerfile
+# server/Dockerfile
+FROM node:24-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY . .
+RUN npm run build
+
+# Production image
+FROM node:24-alpine
+
+WORKDIR /app
+
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+
+EXPOSE 8031
+
+CMD ["npm", "start"]
+```
+
+#### Client Dockerfile
+
+```dockerfile
+# client/Dockerfile
+FROM node:24-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# Production image
+FROM node:24-alpine
+
+WORKDIR /app
+
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/public ./public
+
+EXPOSE 8030
+
+CMD ["npm", "start"]
+```
+
+#### Docker Compose
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "8031:8031"
+    environment:
+      - NODE_ENV=production
+      - PORT=8031
+      - MONGO_URI=${MONGO_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - BCRYPT_SALT_ROUNDS=${BCRYPT_SALT_ROUNDS}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8031/test"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "8030:8030"
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=${NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}
+      - NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=${NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET}
+    depends_on:
+      - server
+    restart: unless-stopped
+```
+
+**Deploy with Docker Compose:**
+
+```bash
+# Build and start services
+docker-compose up -d --build
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+### Option 3: VPS Deployment (Ubuntu/Debian)
+
+For deployment on a virtual private server.
+
+<Steps>
+  <Step title="Server Setup">
+    ```bash
+    # Update system
+    sudo apt update && sudo apt upgrade -y
+    
+    # Install Node.js
+    curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+    sudo apt install -y nodejs
+    
+    # Install PM2 (Process Manager)
+    sudo npm install -g pm2
+    
+    # Install Nginx
+    sudo apt install -y nginx
+    ```
+  </Step>
+  
+  <Step title="Clone and Build">
+    ```bash
+    # Clone repository
+    git clone <your-repo-url> /var/www/horsetrust
+    cd /var/www/horsetrust
+    
+    # Build server
+    cd server
+    npm install
+    npm run build
+    
+    # Build client
+    cd ../client
+    npm install
+    npm run build
+    ```
+  </Step>
+  
+  <Step title="Configure PM2">
+    Create `ecosystem.config.js`:
+    
+    ```javascript
+    module.exports = {
+      apps: [
+        {
+          name: 'horsetrust-server',
+          cwd: '/var/www/horsetrust/server',
+          script: 'npm',
+          args: 'start',
+          env: {
+            NODE_ENV: 'production',
+            PORT: 8031
+          }
+        },
+        {
+          name: 'horsetrust-client',
+          cwd: '/var/www/horsetrust/client',
+          script: 'npm',
+          args: 'start',
+          env: {
+            NODE_ENV: 'production'
+          }
+        }
+      ]
+    };
+    ```
+    
+    Start applications:
+    
+    ```bash
+    pm2 start ecosystem.config.js
+    pm2 save
+    pm2 startup
+    ```
+  </Step>
+  
+  <Step title="Configure Nginx">
+    Create `/etc/nginx/sites-available/horsetrust`:
+    
+    ```nginx
+    # Backend API
+    server {
+        listen 80;
+        server_name api.horsetrust.com;
+        
+        location / {
+            proxy_pass http://localhost:8031;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_cache_bypass $http_upgrade;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+        
+        # WebSocket support
+        location /socket.io/ {
+            proxy_pass http://localhost:8031;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
+    }
+    
+    # Frontend
+    server {
+        listen 80;
+        server_name horsetrust.com www.horsetrust.com;
+        
+        location / {
+            proxy_pass http://localhost:8030;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_cache_bypass $http_upgrade;
+        }
+    }
+    ```
+    
+    Enable and restart:
+    
+    ```bash
+    sudo ln -s /etc/nginx/sites-available/horsetrust /etc/nginx/sites-enabled/
+    sudo nginx -t
+    sudo systemctl restart nginx
+    ```
+  </Step>
+  
+  <Step title="Set Up SSL with Let's Encrypt">
+    ```bash
+    sudo apt install -y certbot python3-certbot-nginx
+    sudo certbot --nginx -d horsetrust.com -d www.horsetrust.com -d api.horsetrust.com
+    ```
+  </Step>
+</Steps>
+
+## Production Considerations
+
+### Security
+
+<CardGroup cols={2}>
+  <Card title="Strong Secrets" icon="key">
+    Use cryptographically secure random strings for `JWT_SECRET`:
+    
+    ```bash
+    openssl rand -base64 32
+    ```
+  </Card>
+  
+  <Card title="CORS Restriction" icon="shield">
+    Never use `CORS_ORIGINS=*` in production. Specify exact domains.
+  </Card>
+  
+  <Card title="HTTPS Only" icon="lock">
+    Always use SSL/TLS certificates. Use Let's Encrypt for free certificates.
+  </Card>
+  
+  <Card title="Rate Limiting" icon="gauge">
+    The server includes `express-rate-limit` - ensure it's properly configured.
+  </Card>
+</CardGroup>
+
+### Database
+
+<Warning>
+  **Production Database Checklist:**
+</Warning>
+
+- Use MongoDB Atlas production tier with automated backups
+- Configure proper network security (IP whitelist)
+- Enable database auditing and monitoring
+- Set up connection pooling
+- Create appropriate indexes for queries
+- Implement backup and disaster recovery procedures
+
+### Performance
+
+**Server Optimization:**
+
+```typescript
+// Mongoose connection with production settings
+mongoose.connect(uri, {
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+  maxPoolSize: 10,  // Add connection pooling
+  minPoolSize: 5
+});
+```
+
+**Next.js Optimization:**
+
+```javascript
+// next.config.js
+module.exports = {
+  compress: true,
+  poweredByHeader: false,
+  generateEtags: true,
+  images: {
+    domains: ['res.cloudinary.com'],
+    formats: ['image/avif', 'image/webp']
+  }
+};
+```
+
+### Monitoring
+
+<Steps>
+  <Step title="Application Monitoring">
+    Use PM2 monitoring or services like:
+    - Datadog
+    - New Relic
+    - Sentry (error tracking)
+  </Step>
+  
+  <Step title="Database Monitoring">
+    MongoDB Atlas provides built-in monitoring:
+    - Query performance
+    - Connection metrics
+    - Storage usage
+  </Step>
+  
+  <Step title="Server Health Checks">
+    Implement health check endpoints:
+    
+    ```typescript
+    app.get('/health', (req, res) => {
+      res.json({
+        status: 'healthy',
+        uptime: process.uptime(),
+        timestamp: Date.now()
+      });
+    });
+    ```
+  </Step>
+  
+  <Step title="Logging">
+    The server uses Morgan for HTTP logging. In production:
+    
+    ```typescript
+    // Use 'combined' format for detailed logs
+    app.use(morgan('combined'));
+    ```
+  </Step>
+</Steps>
+
+### Graceful Shutdown
+
+The server already implements graceful shutdown:
+
+```typescript
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down...');
+  httpServer.close(() => process.exit(0));
+});
+```
+
+This ensures:
+- Active connections are completed
+- Socket.io connections are closed properly
+- Database connections are released
+
+## Continuous Deployment
+
+### GitHub Actions Example
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '24'
+      
+      - name: Build Server
+        run: |
+          cd server
+          npm ci
+          npm run build
+      
+      - name: Build Client
+        run: |
+          cd client
+          npm ci
+          npm run build
+      
+      - name: Deploy
+        # Add your deployment commands here
+        run: echo "Deploy to your platform"
+```
+
+## Troubleshooting Production Issues
+
+<AccordionGroup>
+  <Accordion title="High Memory Usage">
+    - Check for memory leaks with Node.js profiling
+    - Ensure proper database connection pooling
+    - Monitor Socket.io connections
+    - Consider horizontal scaling
+  </Accordion>
+  
+  <Accordion title="Slow Response Times">
+    - Add database indexes
+    - Implement caching (Redis)
+    - Optimize MongoDB queries
+    - Use CDN for static assets
+    - Enable gzip compression
+  </Accordion>
+  
+  <Accordion title="Socket.io Connection Issues">
+    - Verify WebSocket support on your host
+    - Check proxy configuration for WebSocket upgrades
+    - Ensure sticky sessions for load balancers
+    - Review CORS settings
+  </Accordion>
+  
+  <Accordion title="Database Connection Errors">
+    - Verify MongoDB Atlas IP whitelist
+    - Check connection string format
+    - Monitor connection pool usage
+    - Review MongoDB Atlas metrics
+  </Accordion>
+</AccordionGroup>
+
+## Rollback Strategy
+
+In case of deployment issues:
+
+```bash
+# Using PM2
+pm2 list
+pm2 stop all
+
+# Revert to previous git commit
+git checkout <previous-commit-hash>
+
+# Rebuild and restart
+npm install
+npm run build
+pm2 restart all
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Monitoring Setup" icon="chart-line">
+    Implement comprehensive monitoring and alerting
+  </Card>
+  <Card title="Backup Strategy" icon="database">
+    Set up automated database backups and recovery procedures
+  </Card>
+  <Card title="Load Testing" icon="gauge-high">
+    Perform load testing to identify bottlenecks
+  </Card>
+  <Card title="Documentation" icon="book">
+    Document your deployment process and runbooks
+  </Card>
+</CardGroup>

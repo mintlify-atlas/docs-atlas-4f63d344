@@ -1,0 +1,404 @@
+---
+title: "Horse Listings"
+description: "Create and manage premium horse listings with photos, videos, veterinary records, and detailed information"
+---
+
+## Overview
+
+Horse Trust enables sellers to create comprehensive, professional horse listings with rich multimedia content, detailed specifications, and integrated veterinary records. The platform requires minimum quality standards to maintain marketplace integrity.
+
+## Horse Data Model
+
+The Horse model is defined in `server/src/models/Horse.ts` with comprehensive validation:
+
+```typescript
+const horseSchema = new Schema<IHorse>({
+  seller_id: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  name: { type: String, required: [true, "Horse name is required"], trim: true },
+  age: { type: Number, required: true, min: 0, max: 40 },
+  breed: { type: String, required: [true, "Breed is required"], trim: true },
+  discipline: { type: String, required: [true, "Discipline is required"], trim: true },
+  pedigree: { type: String },
+  location: { type: locationSchema, required: true },
+  price: { type: Number, min: 0 },
+  currency: { type: String, enum: ["USD", "EUR", "ARS", "BRL", "MXN"], default: "USD" },
+  photos: {
+    type: [photoSchema],
+    validate: {
+      validator: (photos: unknown[]) => photos.length >= 3,
+      message: "At least 3 photos are required",
+    },
+  },
+  videos: { type: [videoSchema], default: [] },
+  status: { type: String, enum: ["active", "sold", "paused", "draft"], default: "draft" },
+  views_count: { type: Number, default: 0 },
+});
+```
+
+<Info>
+  **Minimum 3 photos** are required for every listing to ensure quality presentation.
+</Info>
+
+## Creating a Horse Listing
+
+The listing creation form is implemented in `client/app/registro-caballo/RegistroCaballoForm.tsx`:
+
+### 1. Basic Information
+
+<ParamField path="name" type="string" required>
+  Horse's registered name (e.g., "Tornado Express")
+</ParamField>
+
+<ParamField path="age" type="number" required>
+  Age in years (0-40)
+</ParamField>
+
+<ParamField path="breed" type="string" required>
+  Horse breed selection:
+  - Pura Sangre (Thoroughbred)
+  - Árabe (Arabian)
+  - Cuarto de Milla (Quarter Horse)
+  - Criollo
+  - Todas las Razas (All Breeds)
+</ParamField>
+
+<ParamField path="discipline" type="string" required>
+  Primary discipline:
+  - Salto (Jumping)
+  - Adiestramiento (Dressage)
+  - Polo
+  - Carreras (Racing)
+</ParamField>
+
+<ParamField path="pedigree" type="string">
+  Genealogy information (e.g., "Padre: Viento Norte | Madre: Luna Roja")
+</ParamField>
+
+### 2. Location and Pricing
+
+```tsx
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <input name="country" placeholder="Ej. Argentina" required />
+  <input name="region" placeholder="Ej. Posadas, Misiones" required />
+  
+  <div className="md:col-span-2 grid grid-cols-3 gap-4">
+    <input name="price" type="number" placeholder="35000" required />
+    <select name="currency">
+      <option value="USD">USD</option>
+      <option value="EUR">EUR</option>
+      <option value="ARS">ARS</option>
+    </select>
+  </div>
+</div>
+```
+
+### 3. Photo Upload
+
+Photos are uploaded to Cloudinary with automatic processing:
+
+```typescript
+const uploadToCloudinary = async (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', 'horse_trust_uploads');
+  formData.append('cloud_name', 'di2agiylz');
+
+  try {
+    const res = await fetch('https://api.cloudinary.com/v1_1/di2agiylz/image/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await res.json();
+    return data.secure_url;
+  } catch (error) {
+    console.error('Error subiendo imagen:', error);
+    return null;
+  }
+};
+```
+
+<Warning>
+  The **first photo** uploaded is automatically set as the cover photo for marketplace display.
+</Warning>
+
+### 4. Video Integration
+
+The platform supports YouTube and Vimeo videos with automatic embed URL conversion:
+
+```typescript
+function toEmbedUrl(url: string): string {
+  // YouTube
+  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+  if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
+  
+  // Vimeo
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+  if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+  
+  return url;
+}
+```
+
+#### Video Schema
+
+```typescript
+const videoSchema = new Schema({
+  url: { type: String, required: true },
+  embed_url: { type: String },
+  video_type: { type: String, enum: ["training", "competition", "other"], required: true },
+  title: { type: String },
+  description: { type: String },
+  recorded_at: { type: Date, required: true },
+  uploaded_at: { type: Date, default: () => new Date() },
+});
+```
+
+<Steps>
+  <Step title="Paste Video URL">
+    Enter a YouTube or Vimeo URL in the video field
+  </Step>
+  <Step title="Auto-conversion">
+    The system automatically converts it to an embeddable format
+  </Step>
+  <Step title="Select Type">
+    Choose video type: Training, Competition, or Other
+  </Step>
+  <Step title="Add Metadata">
+    Provide title and recording date for context
+  </Step>
+</Steps>
+
+## Veterinary Records
+
+Listings can include initial veterinary records to build buyer confidence:
+
+### Record Structure
+
+```typescript
+const vetRecordSchema = new Schema<IVetRecord>({
+  horse_id: { type: Schema.Types.ObjectId, ref: "Horse", required: true, index: true },
+  vet_id: { type: Schema.Types.ObjectId, ref: "User" },
+  review_date: { type: Date, required: true },
+  health_status: { type: String, required: true },
+  certificates: { type: [certificateSchema], default: [] },
+  vaccines: { type: [vaccineSchema], default: [] },
+  validation_status: { type: String, enum: ["pending", "validated", "rejected"], default: "pending" },
+  notes: { type: String },
+});
+```
+
+### Vaccine Tracking
+
+Sellers can add multiple vaccine records:
+
+```tsx
+const addVaccineRow = () => {
+  setVaccines([...vaccines, { 
+    vaccine_name: '', 
+    applied_date: '', 
+    next_dose_date: '' 
+  }]);
+};
+
+// Dynamic vaccine form fields
+vaccines.map((v, index) => (
+  <div key={index} className="flex gap-3">
+    <input 
+      placeholder="Ej. Tétanos" 
+      value={v.vaccine_name} 
+      onChange={(e) => updateVaccine(index, 'vaccine_name', e.target.value)} 
+    />
+    <input 
+      type="date" 
+      value={v.applied_date}
+      onChange={(e) => updateVaccine(index, 'applied_date', e.target.value)} 
+    />
+    <input 
+      type="date" 
+      value={v.next_dose_date}
+      onChange={(e) => updateVaccine(index, 'next_dose_date', e.target.value)} 
+    />
+    <button onClick={() => removeVaccine(index)}>Remove</button>
+  </div>
+))
+```
+
+<Tip>
+  Listings with complete veterinary records receive **3x more inquiries** on average.
+</Tip>
+
+## Full-Text Search
+
+The platform implements full-text search with Spanish language support:
+
+```typescript
+horseSchema.index(
+  { name: "text", breed: "text", discipline: "text", pedigree: "text" },
+  { default_language: "spanish" }
+);
+```
+
+This enables buyers to search across:
+- Horse names
+- Breed information
+- Disciplines
+- Pedigree details
+
+## Listing Submission
+
+The complete submission flow with database wake-up:
+
+```typescript
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (photos.length < 3) {
+    alert("Se requieren al menos 3 fotos.");
+    return;
+  }
+
+  setIsSubmitting(true);
+  
+  try {
+    // Auto-reconnect database if sleeping
+    console.log("Despertando base de datos...");
+    await reconnectDatabase();
+
+    // 1. Upload images to Cloudinary
+    const uploadedUrls = [];
+    for (const file of photos) {
+      const url = await uploadToCloudinary(file);
+      if (url) uploadedUrls.push(url);
+    }
+
+    // 2. Build horse payload
+    const horsePayload = {
+      name: formData.name,
+      age: Number(formData.age),
+      breed: formData.breed,
+      discipline: formData.discipline,
+      pedigree: formData.pedigree,
+      price: Number(formData.price),
+      currency: formData.currency,
+      location: `${formData.region}, ${formData.country}`,
+      photos: uploadedUrls.map((url, i) => ({ url, is_cover: i === 0 })),
+      videos: formData.videoUrl ? [{
+        video_url: formData.videoUrl,
+        video_type: formData.videoType,
+        recording_date: formData.videoDate || new Date().toISOString().split('T')[0]
+      }] : []
+    };
+
+    const result = await createHorse(horsePayload);
+
+    if (!result.success) throw new Error(result.error);
+
+    const horseId = result.data?.ID || result.data?.id || result.data?._id;
+
+    // 3. Add veterinary record if provided
+    if (horseId && formData.reviewDate) {
+      const vetPayload = {
+        review_date: formData.reviewDate,
+        certificate_url: formData.certificateUrl || "",
+        notes: formData.vetNotes || "",
+        vaccines: vaccines.filter(v => v.vaccine_name.trim() !== "")
+      };
+      await addVetRecord(horseId, vetPayload);
+    }
+
+    alert("¡Ejemplar y ficha médica publicados con éxito!");
+    router.push('/dashboard');
+
+  } catch (error: any) {
+    alert(error.message || "Hubo un error en el servidor");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+```
+
+## Live Preview
+
+The form includes a real-time preview of how the listing will appear:
+
+```tsx
+const previewHorse = {
+  ID: 999,
+  NAME: formData.name || 'Nombre del Ejemplar',
+  AGE: Number(formData.age) || 0,
+  BREED: formData.breed,
+  DISCIPLINE: formData.discipline,
+  LOCATION: formData.region && formData.country 
+    ? `${formData.region}, ${formData.country}` 
+    : 'Ubicación',
+  PRICE: Number(formData.price) || 0,
+  SELLER_VERIFIED: 'verified',
+  MAIN_PHOTO: previewUrls.length > 0 
+    ? previewUrls[0] 
+    : 'https://images.unsplash.com/photo-1598974357801-cbca100e65d3?q=80&w=800'
+};
+
+<div className="sticky top-24">
+  <h4>Vista Previa en Vivo</h4>
+  <HorseCard horse={previewHorse} />
+</div>
+```
+
+## Listing Status
+
+Listings progress through multiple states:
+
+<Steps>
+  <Step title="Draft">
+    Initial state when creating a listing
+  </Step>
+  <Step title="Active">
+    Published and visible in marketplace
+  </Step>
+  <Step title="Paused">
+    Temporarily hidden by seller
+  </Step>
+  <Step title="Sold">
+    Horse has been sold, listing archived
+  </Step>
+</Steps>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="High-Quality Photos" icon="camera">
+    Use professional photos in good lighting. First photo is the cover image.
+  </Card>
+  <Card title="Complete Pedigree" icon="dna">
+    Detailed genealogy information increases buyer confidence
+  </Card>
+  <Card title="Add Videos" icon="video">
+    Showcase training or competition footage for better engagement
+  </Card>
+  <Card title="Medical Records" icon="heart-pulse">
+    Including vet records triples inquiry rates
+  </Card>
+</CardGroup>
+
+## Quality Indicators
+
+The platform highlights listing quality to encourage complete profiles:
+
+```tsx
+<div className="bg-equestrian-navy/5 rounded-xl p-4">
+  <ShieldCheck className="text-equestrian-navy w-5 h-5" />
+  <h5>Calidad del Anuncio</h5>
+  <p>Los anuncios con un historial médico inicial, pedigree detallado 
+     y video reciben el triple de consultas.</p>
+</div>
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Browse Marketplace" icon="store" href="/features/marketplace">
+    See how listings appear to buyers
+  </Card>
+  <Card title="Real-Time Chat" icon="messages" href="/features/real-time-chat">
+    Communicate with interested buyers
+  </Card>
+</CardGroup>

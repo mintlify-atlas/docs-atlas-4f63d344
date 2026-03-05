@@ -1,0 +1,176 @@
+---
+title: 'Register User'
+api: 'POST /api/auth/register'
+description: 'Create a new seller account'
+---
+
+## Endpoint
+
+```
+POST /api/auth/register
+```
+
+## Authentication
+
+No authentication required.
+
+## Request Body
+
+<ParamField body="email" type="string" required>
+  User's email address. Must be a valid email format. Will be normalized and converted to lowercase.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password. Must be at least 8 characters long.
+</ParamField>
+
+<ParamField body="full_name" type="string" required>
+  User's full name. Cannot be empty.
+</ParamField>
+
+<ParamField body="phone" type="string">
+  User's phone number in international format (e.g., +5491112345678). Must match pattern: `^\+?[1-9][0-9]{7,14}$`
+</ParamField>
+
+<ParamField body="role" type="string">
+  User role. Only "seller" is allowed for public registration. Admin accounts cannot be created via this endpoint.
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  Indicates whether the registration was successful.
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message describing the result.
+</ResponseField>
+
+<ResponseField name="token" type="string">
+  JWT authentication token. Expires in 7 days by default.
+</ResponseField>
+
+<ResponseField name="user" type="object">
+  Basic user information.
+  
+  <ResponseField name="id" type="string">
+    User's unique identifier.
+  </ResponseField>
+  
+  <ResponseField name="email" type="string">
+    User's email address.
+  </ResponseField>
+  
+  <ResponseField name="full_name" type="string">
+    User's full name.
+  </ResponseField>
+  
+  <ResponseField name="role" type="string">
+    User's role (always "seller" for public registration).
+  </ResponseField>
+</ResponseField>
+
+## Example Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://api.horsetrust.com/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "seller@example.com",
+    "password": "securePassword123",
+    "full_name": "John Smith",
+    "phone": "+5491112345678"
+  }'
+```
+
+```javascript JavaScript/TypeScript
+const response = await fetch('https://api.horsetrust.com/api/auth/register', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    email: 'seller@example.com',
+    password: 'securePassword123',
+    full_name: 'John Smith',
+    phone: '+5491112345678'
+  })
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+</CodeGroup>
+
+## Example Response
+
+```json 201 Success
+{
+  "success": true,
+  "message": "User registered successfully",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "507f1f77bcf86cd799439011",
+    "email": "seller@example.com",
+    "full_name": "John Smith",
+    "role": "seller"
+  }
+}
+```
+
+## Error Responses
+
+<ResponseField name="400" type="error">
+  **Bad Request** - Validation error.
+  
+  ```json
+  {
+    "success": false,
+    "message": "Password must be at least 8 characters"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="403" type="error">
+  **Forbidden** - Attempted to register as admin.
+  
+  ```json
+  {
+    "success": false,
+    "message": "Cannot register as admin"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="409" type="error">
+  **Conflict** - Email already registered.
+  
+  ```json
+  {
+    "success": false,
+    "message": "Email already registered"
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="500" type="error">
+  **Server Error** - Internal server error.
+  
+  ```json
+  {
+    "success": false,
+    "message": "Server error"
+  }
+  ```
+</ResponseField>
+
+## Notes
+
+- Email addresses are automatically normalized and converted to lowercase
+- Passwords are securely hashed using bcrypt with 12 salt rounds
+- New users are created with `is_email_verified: false` and `is_phone_verified: false`
+- Seller profile is initialized with `verification_status: "pending"`
+- The JWT token should be stored securely and included in subsequent requests requiring authentication

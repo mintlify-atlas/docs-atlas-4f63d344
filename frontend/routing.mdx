@@ -1,0 +1,503 @@
+---
+title: Routing
+description: Next.js 16 App Router implementation in Horse Trust frontend
+---
+
+## App Router Architecture
+
+Horse Trust uses Next.js 16's App Router, which provides file-system based routing with enhanced features like layouts, server components, and streaming.
+
+## Route Structure
+
+```
+app/
+├── layout.tsx                    # Root layout (wraps all pages)
+├── page.tsx                      # Homepage → /
+├── actions/                      # Server Actions
+│   ├── auth.ts                  # Authentication server actions
+│   └── horses.ts                # Horse management actions
+├── dashboard/
+│   └── page.tsx                 # Dashboard → /dashboard
+├── login/
+│   └── page.tsx                 # Login → /login
+├── marketplace/
+│   ├── page.tsx                 # Marketplace listing → /marketplace
+│   └── [id]/
+│       └── page.tsx             # Horse detail → /marketplace/[id]
+├── registro/
+│   └── page.tsx                 # User registration → /registro
+├── registro-caballo/
+│   ├── page.tsx                 # Horse registration → /registro-caballo
+│   └── RegistroCaballoForm.tsx  # Form component
+└── utils/
+    └── apiFetch.ts              # API utility functions
+```
+
+## Root Layout
+
+The root layout wraps all pages and provides global UI elements.
+
+**Location:** `app/layout.tsx`
+
+```tsx title="app/layout.tsx"
+import type { Metadata } from "next";
+import "./globals.css";
+import Header from "@/component/layout/Header";
+import Footer from "@/component/layout/Footer";
+import { cookies } from 'next/headers';
+
+export const metadata: Metadata = {
+  title: "HorseTrust | Mercado de Caballos de Élite Verificados",
+  description: "La plataforma líder para la compra y venta de caballos de alto valor.",
+};
+
+export default async function RootLayout({
+  children,
+}: { children: React.ReactNode }) {
+  const cookieStore = await cookies();
+  const isLoggedIn = cookieStore.has('horse_trust_token');
+  
+  return (
+    <html lang="en">
+      <body>
+        <Header initialIsLoggedIn={isLoggedIn}/>
+        {children}
+        <Footer/>
+      </body>
+    </html>
+  );
+}
+```
+
+### Key Features:
+
+- **Server Component**: Runs on the server for optimal performance
+- **Cookie Access**: Reads authentication state from cookies
+- **Metadata Export**: Sets page title and description for SEO
+- **Global Components**: Header and Footer included in all pages
+
+## Public Routes
+
+### Homepage
+
+**Route:** `/`
+
+**File:** `app/page.tsx`
+
+```tsx title="app/page.tsx"
+import HeroSection from '@/component/home/HeroSection';
+import FeaturedHorses from '@/component/home/FeaturedHorses';
+import SecuritySection from '@/component/home/SecuritySection';
+
+export default function LandingPage() {
+  return (
+    <div className="bg-background-light min-h-screen">
+      <main>
+        <HeroSection />
+        <FeaturedHorses />
+        <SecuritySection />
+      </main>
+    </div>
+  );
+}
+```
+
+### Marketplace Listing
+
+**Route:** `/marketplace`
+
+**File:** `app/marketplace/page.tsx`
+
+```tsx title="app/marketplace/page.tsx"
+import MarketplaceClient from '@/component/marketplace/MarketplaceClient';
+
+export const dynamic = 'force-dynamic';
+
+async function getHorses() {
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    const res = await fetch(`${apiUrl}/horses`, {
+      next: { revalidate: 60 } 
+    });
+
+    if (!res.ok) throw new Error('Error al traer los caballos');
+
+    const jsonResponse = await res.json();
+    const horsesArray = Array.isArray(jsonResponse) ? jsonResponse : jsonResponse.data;
+
+    return horsesArray;
+  } catch (error) {
+    console.error("Error:", error);
+    return []; 
+  }
+}
+
+export default async function MarketplacePage() {
+  const initialHorses = await getHorses();
+  return <MarketplaceClient initialHorses={initialHorses} />;
+}
+```
+
+**Features:**
+
+- Server-side data fetching
+- Dynamic rendering with `force-dynamic`
+- Revalidation every 60 seconds
+- Error handling for API failures
+
+## Dynamic Routes
+
+### Horse Detail Page
+
+**Route:** `/marketplace/[id]`
+
+**File:** `app/marketplace/[id]/page.tsx`
+
+**URL Example:** `/marketplace/123`
+
+Dynamic routes use folder names with square brackets to create parameterized URLs:
+
+```tsx
+export default async function HorseDetailPage({ 
+  params 
+}: { 
+  params: { id: string } 
+}) {
+  const { id } = params;
+  
+  // Fetch horse data using id
+  const horse = await fetchHorseById(id);
+  
+  return (
+    <div>
+      <h1>{horse.name}</h1>
+      {/* Horse details */}
+    </div>
+  );
+}
+```
+
+**Dynamic Segment Access:**
+
+- `params.id` contains the dynamic segment value
+- Type-safe with TypeScript
+- Can be used for data fetching
+
+## Authentication Routes
+
+### Login Page
+
+**Route:** `/login`
+
+**File:** `app/login/page.tsx`
+
+**Type:** Client Component
+
+```tsx title="app/login/page.tsx"
+"use client";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { loginUser } from '@/app/actions/auth';
+
+export default function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    const response = await loginUser(email, password);
+
+    if (!response.success) {
+      setError(response.error);
+      setIsLoading(false);
+      return;
+    }
+
+    localStorage.setItem('horse_trust_token', response.data.token);
+    router.push('/dashboard');
+  };
+
+  return (
+    <div className="flex min-h-screen">
+      <form onSubmit={handleLogin}>
+        <input 
+          type="email" 
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <input 
+          type="password" 
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <button type="submit" disabled={isLoading}>
+          {isLoading ? 'Verificando...' : 'Ingresar'}
+        </button>
+      </form>
+    </div>
+  );
+}
+```
+
+### Registration Page
+
+**Route:** `/registro`
+
+**File:** `app/registro/page.tsx`
+
+**Purpose:** New user registration
+
+## Protected Routes
+
+### Dashboard
+
+**Route:** `/dashboard`
+
+**File:** `app/dashboard/page.tsx`
+
+**Access:** Requires authentication
+
+```tsx title="app/dashboard/page.tsx"
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+
+export const dynamic = 'force-dynamic';
+
+async function fetchDashboardData(token: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  
+  const meRes = await fetch(`${apiUrl}/auth/me`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+    cache: 'no-store'
+  });
+  
+  const user = await meRes.json();
+  return { user };
+}
+
+export default async function DashboardPage() {
+  const cookieStore = await cookies();
+  const tokenCookie = cookieStore.get('horse_trust_token');
+
+  // Redirect to login if not authenticated
+  if (!tokenCookie?.value) {
+    redirect('/login');
+  }
+
+  const data = await fetchDashboardData(tokenCookie.value);
+  if (!data) redirect('/login');
+
+  return (
+    <div className="min-h-screen">
+      <h1>Bienvenida, {data.user.full_name}</h1>
+      {/* Dashboard content */}
+    </div>
+  );
+}
+```
+
+**Protection Strategy:**
+
+1. Read authentication cookie
+2. If cookie missing, redirect to `/login`
+3. Validate token with API
+4. If invalid, redirect to `/login`
+5. Render protected content
+
+## Server Actions
+
+Server Actions provide secure server-side mutations from client components.
+
+**Location:** `app/actions/auth.ts`
+
+```tsx title="app/actions/auth.ts"
+"use server";
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { apiFetch } from '../utils/apiFetch';
+
+export async function loginUser(email: string, password: string) {
+  try {
+    const res = await apiFetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Error al validar credenciales');
+    }
+    
+    const cookieStore = await cookies();
+    cookieStore.set('horse_trust_token', data.token, { 
+      httpOnly: true, 
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    });
+
+    return { success: true, data };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function logout() {
+  const cookieStore = await cookies();
+  cookieStore.delete('horse_trust_token');
+  redirect('/'); 
+}
+```
+
+**Usage in Client Component:**
+
+```tsx
+import { loginUser, logout } from '@/app/actions/auth';
+
+// In component
+const response = await loginUser(email, password);
+
+// Or for logout
+await logout();
+```
+
+## Navigation Patterns
+
+### Link Component
+
+Use Next.js Link for client-side navigation:
+
+```tsx
+import Link from 'next/link';
+
+<Link href="/marketplace" className="...">
+  Ver Catálogo
+</Link>
+```
+
+### Programmatic Navigation
+
+Use `useRouter` in client components:
+
+```tsx
+import { useRouter } from 'next/navigation';
+
+const router = useRouter();
+
+// Navigate to route
+router.push('/dashboard');
+
+// Go back
+router.back();
+
+// Refresh current route
+router.refresh();
+```
+
+### Server-Side Redirects
+
+Use `redirect` in server components:
+
+```tsx
+import { redirect } from 'next/navigation';
+
+if (!isAuthenticated) {
+  redirect('/login');
+}
+```
+
+## Route Configuration
+
+### Dynamic Rendering
+
+Force dynamic rendering for pages that need real-time data:
+
+```tsx
+export const dynamic = 'force-dynamic';
+```
+
+### Revalidation
+
+Set revalidation time for data fetching:
+
+```tsx
+fetch(url, {
+  next: { revalidate: 60 } // Revalidate every 60 seconds
+});
+```
+
+### No Cache
+
+Disable caching for sensitive data:
+
+```tsx
+fetch(url, {
+  cache: 'no-store'
+});
+```
+
+## Path Aliases
+
+TypeScript path aliases configured in `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./*"]
+    }
+  }
+}
+```
+
+**Usage:**
+
+```tsx
+import Header from '@/component/layout/Header';
+import { loginUser } from '@/app/actions/auth';
+```
+
+## Middleware (Future Enhancement)
+
+Middleware can be added at `middleware.ts` for route protection:
+
+```tsx title="middleware.ts"
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+export function middleware(request: NextRequest) {
+  const token = request.cookies.get('horse_trust_token');
+  
+  if (!token && request.nextUrl.pathname.startsWith('/dashboard')) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+  
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ['/dashboard/:path*', '/mis-publicaciones/:path*']
+};
+```
+
+## Route Groups (Optional Pattern)
+
+Route groups can organize routes without affecting URL structure:
+
+```
+app/
+├── (auth)/
+│   ├── login/
+│   └── registro/
+└── (dashboard)/
+    ├── dashboard/
+    └── mis-publicaciones/
+```
+
+This creates shared layouts without adding route segments.

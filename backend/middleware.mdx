@@ -1,0 +1,303 @@
+---
+title: Middleware
+description: Authentication and authorization middleware for the Horse Trust platform
+---
+
+## Overview
+
+The Horse Trust backend uses several middleware functions for authentication, authorization, and request validation.
+
+## Authentication Middleware
+
+### authenticate
+
+Verifies JWT tokens in the Authorization header.
+
+```typescript
+import { Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+import { AuthRequest, JwtPayload } from "../types/index";
+
+export const authenticate = (req: AuthRequest, res: Response, next: NextFunction): void => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ success: false, message: "No token provided" });
+    return;
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
+    req.user = decoded;
+    next();
+  } catch (err) {
+    res.status(401).json({ success: false, message: "Invalid or expired token" });
+  }
+};
+```
+
+**Reference**: middleware/auth.ts:6-23
+
+**Usage**:
+
+```typescript
+import { authenticate } from "./middleware/auth";
+
+router.get("/profile", authenticate, profileController);
+```
+
+**Expected Header Format**:
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Response on Failure**:
+
+```json
+{
+  "success": false,
+  "message": "No token provided"
+}
+```
+
+or
+
+```json
+{
+  "success": false,
+  "message": "Invalid or expired token"
+}
+```
+
+## Authorization Middleware
+
+### requireAdmin
+
+Ensures the authenticated user has admin role.
+
+```typescript
+export const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction): void => {
+  if (req.user?.role !== "admin") {
+    res.status(403).json({ success: false, message: "Admin access required" });
+    return;
+  }
+  next();
+};
+```
+
+**Reference**: middleware/auth.ts:26-32
+
+**Usage**:
+
+```typescript
+router.delete("/users/:id", authenticate, requireAdmin, deleteUserController);
+```
+
+**Response on Failure**:
+
+```json
+{
+  "success": false,
+  "message": "Admin access required"
+}
+```
+
+### requireSeller
+
+Allows access to users with seller or admin role.
+
+```typescript
+export const requireSeller = (req: AuthRequest, res: Response, next: NextFunction): void => {
+  if (!req.user || !["seller", "admin"].includes(req.user.role)) {
+    res.status(403).json({ success: false, message: "Seller access required" });
+    return;
+  }
+  next();
+};
+```
+
+**Reference**: middleware/auth.ts:35-41
+
+**Usage**:
+
+```typescript
+router.post("/horses", authenticate, requireSeller, createHorseController);
+```
+
+**Response on Failure**:
+
+```json
+{
+  "success": false,
+  "message": "Seller access required"
+}
+```
+
+### optionalAuth
+
+Attempts to authenticate but allows the request to proceed even if no token is provided. Useful for public routes that can benefit from user context.
+
+```typescript
+export const optionalAuth = (req: AuthRequest, _res: Response, next: NextFunction): void => {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.split(" ")[1];
+    try {
+      req.user = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
+    } catch {
+      // Token invalid but route is public — ignore silently
+    }
+  }
+  next();
+};
+```
+
+**Reference**: middleware/auth.ts:44-55
+
+**Usage**:
+
+```typescript
+// Public route that can track views per user if authenticated
+router.get("/horses/:id", optionalAuth, getHorseController);
+```
+
+## Middleware Chain Examples
+
+### Admin-Only Route
+
+```typescript
+router.post(
+  "/admin/verify-seller",
+  authenticate,      // Verify token exists and is valid
+  requireAdmin,      // Verify user is admin
+  verifySeller
+);
+```
+
+### Seller Route (Seller or Admin)
+
+```typescript
+router.post(
+  "/horses",
+  authenticate,      // Verify token exists and is valid
+  requireSeller,     // Verify user is seller or admin
+  createHorse
+);
+```
+
+### Public Route with Optional Auth
+
+```typescript
+router.get(
+  "/horses",
+  optionalAuth,      // Add user context if token provided
+  listHorses
+);
+```
+
+### Auth-Protected Route
+
+```typescript
+router.get(
+  "/me",
+  authenticate,      // Only verify token
+  getCurrentUser
+);
+```
+
+## AuthRequest Type
+
+The middleware extends Express's Request type with user information:
+
+```typescript
+interface JwtPayload {
+  userId: string;
+  role: "admin" | "seller";
+  email: string;
+  iat: number;
+  exp: number;
+}
+
+interface AuthRequest extends Request {
+  user?: JwtPayload;
+}
+```
+
+## Rate Limiting Middleware
+
+Defined in `app.ts`, two rate limiters are configured:
+
+### Global Rate Limiter
+
+Applies to all routes:
+
+```typescript
+const limiter = rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,  // 15 min
+  max: Number(process.env.RATE_LIMIT_MAX) || 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many requests, please try again later" },
+});
+app.use(limiter);
+```
+
+**Reference**: app.ts:37-44
+
+### Auth Rate Limiter
+
+Stricter limits for authentication endpoints:
+
+```typescript
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { success: false, message: "Too many auth attempts. Try again in 15 minutes." },
+});
+
+app.use("/api/auth", authLimiter, authRoutes);
+```
+
+**Reference**: app.ts:47-51
+
+## Validation Middleware
+
+Validation errors are caught globally:
+
+```typescript
+import { validationResult } from "express-validator";
+
+app.use((req: Request, res: Response, next: NextFunction): void => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res.status(422).json({ success: false, errors: errors.array() });
+    return;
+  }
+  next();
+});
+```
+
+**Reference**: app.ts:55-62
+
+**Example Error Response**:
+
+```json
+{
+  "success": false,
+  "errors": [
+    {
+      "msg": "Email is required",
+      "param": "email",
+      "location": "body"
+    },
+    {
+      "msg": "Password must be at least 8 characters",
+      "param": "password",
+      "location": "body"
+    }
+  ]
+}
+```

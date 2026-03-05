@@ -1,0 +1,298 @@
+---
+title: "Authentication System"
+description: "Learn how Horse Trust implements secure user authentication with JWT tokens, password hashing, and role-based access control"
+---
+
+## Overview
+
+Horse Trust uses a secure authentication system built on JWT (JSON Web Tokens) and bcrypt password hashing. The platform supports two user roles: **sellers** and **admins**, with email and phone verification capabilities.
+
+## User Model
+
+The authentication system is built around a comprehensive User model defined in `server/src/models/User.ts`:
+
+```typescript
+const userSchema = new Schema<IUser>({
+  email: {
+    type: String,
+    required: [true, "Email is required"],
+    unique: true,
+    lowercase: true,
+    trim: true,
+    match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Invalid email format"],
+  },
+  password_hash: { type: String, required: true },
+  role: { type: String, enum: ["admin", "seller"], required: true },
+  full_name: { type: String, required: [true, "Full name is required"], trim: true },
+  phone: {
+    type: String,
+    trim: true,
+    match: [/^\+?[1-9][0-9]{7,14}$/, "Invalid phone format. Use international format: +5491112345678"],
+  },
+  is_email_verified: { type: Boolean, default: false },
+  is_phone_verified: { type: Boolean, default: false },
+  email_verification_token: { type: String },
+  profile_picture_url: { type: String },
+  seller_profile: { type: sellerProfileSchema, default: null },
+  is_active: { type: Boolean, default: true },
+  last_login: { type: Date },
+});
+```
+
+### Key Features
+
+<CardGroup cols={2}>
+  <Card title="Password Security" icon="shield-halved">
+    Passwords are hashed using bcrypt with configurable salt rounds before storage
+  </Card>
+  <Card title="Email Validation" icon="envelope">
+    Built-in regex validation ensures proper email format
+  </Card>
+  <Card title="Phone Verification" icon="phone">
+    International phone format validation with E.164 standard
+  </Card>
+  <Card title="Role-Based Access" icon="user-gear">
+    Two-tier role system: sellers and admins
+  </Card>
+</CardGroup>
+
+## Password Hashing
+
+Passwords are automatically hashed before saving using a pre-save middleware hook:
+
+```typescript
+userSchema.pre("save", async function (next) {
+  // Only hash when password_hash field is modified
+  if (!this.isModified("password_hash")) return;
+  const salt = await bcrypt.genSalt(Number(process.env.BCRYPT_SALT_ROUNDS) || 12);
+  this.password_hash = await bcrypt.hash(this.password_hash, salt);
+});
+```
+
+<Info>
+  The system uses 12 salt rounds by default, configurable via the `BCRYPT_SALT_ROUNDS` environment variable.
+</Info>
+
+## Login Flow
+
+### Frontend Implementation
+
+The login page (`client/app/login/page.tsx`) provides a clean, responsive interface:
+
+```tsx
+const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsLoading(true);
+  setError(null);
+
+  const response = await loginUser(email, password);
+
+  if (!response.success) {
+    setError(response.error);
+    setIsLoading(false);
+    return;
+  }
+
+  localStorage.setItem('horse_trust_token', response.data.token);
+  localStorage.setItem('horse_trust_user', JSON.stringify(response.data.user));
+
+  router.push('/dashboard');
+};
+```
+
+### Server Action
+
+The `loginUser` server action (`client/app/actions/auth.ts`) handles authentication:
+
+```typescript
+export async function loginUser(email: string, password: string) {
+  try {
+    const res = await apiFetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || data.message || 'Error al validar credenciales');
+    }
+    
+    const cookieStore = await cookies();
+    cookieStore.set('horse_trust_token', data.token, { 
+      httpOnly: true, 
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
+    });
+
+    return { success: true, data };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+```
+
+<Warning>
+  Tokens are stored both in httpOnly cookies (server-side) and localStorage (client-side) for different use cases.
+</Warning>
+
+## Registration Flow
+
+Horse Trust implements a **two-step registration process**:
+
+### Step 1: Basic Account Creation
+
+Users provide their basic information:
+
+- Full name
+- Email address
+- Phone number (international format)
+- Password (minimum 8 characters)
+
+```tsx
+const handleRegister = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsLoading(true);
+
+  // 1. Create the account
+  const response = await registerUser({
+    full_name: formData.full_name,
+    email: formData.email,
+    phone: formData.phone,
+    password: formData.password,
+    role: 'seller'
+  });
+
+  if (!response.success) {
+    throw new Error(response.error);
+  }
+
+  // 2. Auto-login after registration
+  const loginResponse = await loginUser(formData.email, formData.password);
+  
+  if (loginResponse.success && loginResponse.data.token) {
+    localStorage.setItem('horse_trust_token', loginResponse.data.token);
+    localStorage.setItem('horse_trust_user', JSON.stringify(loginResponse.data.user));
+  }
+  
+  setStep(2); // Move to verification step
+};
+```
+
+### Step 2: Identity Verification (Optional)
+
+Sellers can verify their identity to gain trust badges:
+
+- Document number (DNI/Passport)
+- Selfie holding ID document
+
+<Note>
+  Users can skip verification and still access the marketplace, but verified sellers receive priority placement and trust badges.
+</Note>
+
+## Password Comparison
+
+The User model includes an instance method for secure password verification:
+
+```typescript
+userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
+  return bcrypt.compare(candidatePassword, this.password_hash);
+};
+```
+
+## Security Features
+
+### Sensitive Data Protection
+
+Sensitive fields are automatically removed from JSON responses:
+
+```typescript
+userSchema.methods.toJSON = function () {
+  const obj = this.toObject();
+  delete obj.password_hash;
+  delete obj.email_verification_token;
+  return obj;
+};
+```
+
+### Token Storage
+
+<Steps>
+  <Step title="Server-side Cookies">
+    JWT tokens are stored in httpOnly cookies to prevent XSS attacks
+  </Step>
+  <Step title="Client-side Storage">
+    Tokens are also stored in localStorage for client-side API calls
+  </Step>
+  <Step title="7-Day Expiration">
+    Tokens automatically expire after 7 days for security
+  </Step>
+</Steps>
+
+## Protected Routes
+
+The dashboard uses server-side authentication checking:
+
+```typescript
+export default async function DashboardPage() {
+  const cookieStore = await cookies();
+  const tokenCookie = cookieStore.get('horse_trust_token');
+
+  if (!tokenCookie?.value) redirect('/login');
+  
+  const data = await fetchDashboardData(tokenCookie.value);
+  if (!data) redirect('/login');
+
+  const { user, horses } = data;
+  // Render dashboard...
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Strong Passwords">
+    The system requires minimum 8 characters. Encourage users to use passwords with mixed case, numbers, and symbols.
+  </Accordion>
+  
+  <Accordion title="Enable HTTPS in Production">
+    The secure cookie flag is automatically enabled in production to ensure tokens are only sent over HTTPS.
+  </Accordion>
+  
+  <Accordion title="Implement Rate Limiting">
+    Add rate limiting to login endpoints to prevent brute force attacks.
+  </Accordion>
+  
+  <Accordion title="Regular Token Rotation">
+    Consider implementing refresh tokens for enhanced security in long-lived sessions.
+  </Accordion>
+</AccordionGroup>
+
+## Error Handling
+
+The authentication system provides user-friendly error messages:
+
+```tsx
+{error && (
+  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+    <p className="text-sm font-medium text-red-600">
+      {error.includes('Pool') 
+        ? 'Error del servidor: La base de datos está en reposo. Por favor, intentá de nuevo en unos segundos.' 
+        : error}
+    </p>
+  </div>
+)}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Seller Verification" icon="badge-check" href="/features/seller-verification">
+    Learn how sellers verify their identity
+  </Card>
+  <Card title="Create Horse Listings" icon="horse" href="/features/horse-listings">
+    Start publishing horse listings
+  </Card>
+</CardGroup>

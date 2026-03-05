@@ -1,0 +1,224 @@
+---
+title: Environment Variables
+description: Complete reference for all environment variables used in Horse Trust platform
+---
+
+The Horse Trust platform requires environment variables to be configured for both the server (backend) and client (frontend) applications.
+
+## Server Environment Variables
+
+Create a `.env` file in the `server/` directory with the following variables:
+
+### Database Configuration
+
+<ParamField path="MONGO_URI" type="string" required>
+  MongoDB connection string for your database.
+  
+  ```bash
+  MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/horsetrust?retryWrites=true&w=majority
+  ```
+  
+  **Format:** `mongodb+srv://<username>:<password>@<cluster>/<database>`
+</ParamField>
+
+### Server Configuration
+
+<ParamField path="PORT" type="number" default="8031">
+  Port number where the Express server will run.
+  
+  ```bash
+  PORT=8031
+  ```
+</ParamField>
+
+<ParamField path="NODE_ENV" type="string" default="development">
+  Environment mode for the application.
+  
+  ```bash
+  NODE_ENV=development  # or production
+  ```
+  
+  **Options:** `development`, `production`, `test`
+</ParamField>
+
+### Authentication & Security
+
+<ParamField path="JWT_SECRET" type="string" required>
+  Secret key used to sign JWT tokens for authentication.
+  
+  ```bash
+  JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+  ```
+  
+  <Warning>
+    Use a strong, random string in production. Never commit this value to version control.
+  </Warning>
+</ParamField>
+
+<ParamField path="JWT_EXPIRES_IN" type="string" default="10d">
+  JWT token expiration time.
+  
+  ```bash
+  JWT_EXPIRES_IN=10d
+  ```
+  
+  **Format:** Use time notation like `10d` (10 days), `24h` (24 hours), `30m` (30 minutes)
+</ParamField>
+
+<ParamField path="BCRYPT_SALT_ROUNDS" type="number" default="12">
+  Number of salt rounds for bcrypt password hashing.
+  
+  ```bash
+  BCRYPT_SALT_ROUNDS=12
+  ```
+  
+  <Info>
+    Higher values increase security but also increase processing time. 12 is a good balance for production.
+  </Info>
+</ParamField>
+
+### CORS Configuration
+
+<ParamField path="CORS_ORIGINS" type="string" default="*">
+  Comma-separated list of allowed origins for CORS.
+  
+  ```bash
+  # Development
+  CORS_ORIGINS=*
+  
+  # Production
+  CORS_ORIGINS=https://horsetrust.com,https://www.horsetrust.com
+  ```
+  
+  <Warning>
+    In production, replace `*` with specific allowed origins for better security.
+  </Warning>
+</ParamField>
+
+## Client Environment Variables
+
+Create a `.env.local` file in the `client/` directory with the following variables:
+
+### API Configuration
+
+<ParamField path="NEXT_PUBLIC_API_URL" type="string" required>
+  Base URL for the backend API.
+  
+  ```bash
+  # Development
+  NEXT_PUBLIC_API_URL=http://localhost:8031/api
+  
+  # Production
+  NEXT_PUBLIC_API_URL=https://api.horsetrust.com/api
+  ```
+  
+  <Info>
+    The `NEXT_PUBLIC_` prefix makes this variable accessible in the browser.
+  </Info>
+</ParamField>
+
+### Cloudinary Configuration
+
+<ParamField path="NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME" type="string" required>
+  Your Cloudinary cloud name for image uploads.
+  
+  ```bash
+  NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=di2agiylz
+  ```
+</ParamField>
+
+<ParamField path="NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET" type="string" required>
+  Cloudinary upload preset for handling image uploads.
+  
+  ```bash
+  NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=horse_trust_uploads
+  ```
+  
+  <Info>
+    You need to create this upload preset in your Cloudinary dashboard with unsigned upload enabled.
+  </Info>
+</ParamField>
+
+## Example Configuration Files
+
+### Server `.env` Example
+
+```bash
+# ================================
+# SERVER CONFIGURATION
+# ================================
+PORT=8031
+NODE_ENV=development
+
+# ================================
+# DATABASE
+# ================================
+MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/horsetrust
+
+# ================================
+# AUTHENTICATION
+# ================================
+JWT_SECRET=your-super-secret-jwt-key-change-this
+JWT_EXPIRES_IN=10d
+BCRYPT_SALT_ROUNDS=12
+
+# ================================
+# CORS
+# ================================
+CORS_ORIGINS=*
+```
+
+### Client `.env.local` Example
+
+```bash
+# ==========================================
+# CLIENT CONFIGURATION
+# ==========================================
+
+# API URL
+NEXT_PUBLIC_API_URL=http://localhost:8031/api
+
+# Cloudinary
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=di2agiylz
+NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=horse_trust_uploads
+```
+
+## Security Best Practices
+
+<Warning>
+  **Never commit `.env` files to version control!**
+  
+  Ensure `.env`, `.env.local`, and `.env.production` are listed in your `.gitignore` file.
+</Warning>
+
+<Steps>
+  <Step title="Use Strong Secrets">
+    Generate strong, random strings for `JWT_SECRET` using a password generator or:
+    
+    ```bash
+    openssl rand -base64 32
+    ```
+  </Step>
+  
+  <Step title="Restrict CORS Origins">
+    In production, never use `CORS_ORIGINS=*`. Specify exact domains.
+  </Step>
+  
+  <Step title="Use Environment-Specific Files">
+    Maintain separate configuration files for development, staging, and production.
+  </Step>
+  
+  <Step title="Rotate Secrets Regularly">
+    Update sensitive credentials like `JWT_SECRET` periodically and after any security incident.
+  </Step>
+</Steps>
+
+## Validation
+
+The server validates required environment variables on startup. If any required variable is missing, the application will fail to start with an error message:
+
+```bash
+MONGO_URI is not defined in environment variables
+```
+
+Ensure all required variables are set before running the application.

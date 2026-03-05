@@ -1,0 +1,502 @@
+---
+title: Components
+description: Comprehensive guide to reusable components in the Horse Trust frontend
+---
+
+## Component Architecture
+
+The Horse Trust frontend uses a modular component architecture organized by feature and function. Components are located in the `/component` directory and are built with React, TypeScript, and Tailwind CSS.
+
+## Component Directory Structure
+
+```
+component/
+├── GetServerData/          # Server data fetching components
+│   ├── index.tsx
+│   └── RenderData.tsx
+├── home/                   # Homepage components
+│   ├── FeaturedHorses.tsx
+│   ├── HeroSection.tsx
+│   └── SecuritySection.tsx
+├── layout/                 # Layout components
+│   ├── Header.tsx
+│   └── Footer.tsx
+└── marketplace/           # Marketplace components
+    ├── FilterSideBar.tsx
+    ├── HorseCard.tsx
+    ├── HorseDetailClient.tsx
+    └── MarketplaceClient.tsx
+```
+
+## Layout Components
+
+### Header
+
+The main navigation header with authentication state management.
+
+**Location:** `component/layout/Header.tsx`
+
+**Type:** Client Component (`"use client"`)
+
+#### Interface
+
+```tsx
+interface HeaderProps {
+  initialIsLoggedIn: boolean;
+}
+```
+
+#### Key Features
+
+- Responsive navigation with mobile menu
+- User authentication state display
+- Dynamic navigation links based on login status
+- User dropdown menu with avatar
+- Sticky positioning with backdrop blur
+
+#### Usage Example
+
+```tsx
+import Header from '@/component/layout/Header';
+import { cookies } from 'next/headers';
+
+export default async function RootLayout({ children }) {
+  const cookieStore = await cookies();
+  const isLoggedIn = cookieStore.has('horse_trust_token');
+  
+  return (
+    <html>
+      <body>
+        <Header initialIsLoggedIn={isLoggedIn} />
+        {children}
+      </body>
+    </html>
+  );
+}
+```
+
+#### Code Snippet
+
+```tsx title="component/layout/Header.tsx"
+export default function Header({ initialIsLoggedIn }: { initialIsLoggedIn: boolean }) {
+  const pathname = usePathname();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(initialIsLoggedIn);
+  const [userName, setUserName] = useState("Usuario");
+
+  const navLinks = isLoggedIn 
+    ? [
+        { name: 'Mi Panel', href: '/dashboard' },
+        { name: 'Mis Publicaciones', href: '/mis-publicaciones' },
+        { name: 'Catálogo', href: '/marketplace' },
+        { name: 'Mensajes', href: '/chat' },
+      ]
+    : [
+        { name: 'Catálogo', href: '/marketplace' },
+        { name: 'Cómo Funciona', href: '/como-funciona' },
+        { name: 'Haras Top', href: '/haras-top' },
+      ];
+
+  return (
+    <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur">
+      {/* Header content */}
+    </header>
+  );
+}
+```
+
+### Footer
+
+Site-wide footer with navigation links and branding.
+
+**Location:** `component/layout/Footer.tsx`
+
+**Type:** Server Component
+
+#### Features
+
+- Multi-column link organization
+- Social media links
+- Copyright information
+- Responsive grid layout
+
+#### Code Example
+
+```tsx title="component/layout/Footer.tsx"
+export default function Footer() {
+  return (
+    <footer className="bg-white border-t border-slate-200 pt-24 pb-12">
+      <div className="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-12">
+        <div className="col-span-2">
+          <Link href="/" className="flex items-center gap-3">
+            <Image src="/img/logo-icon.png" alt="HorseTrust" width={48} height={48} />
+            <span className="text-2xl font-semibold">HorseTrust</span>
+          </Link>
+        </div>
+        {/* Footer columns */}
+      </div>
+    </footer>
+  );
+}
+```
+
+## Home Components
+
+### HeroSection
+
+The landing page hero with search functionality.
+
+**Location:** `component/home/HeroSection.tsx`
+
+**Type:** Server Component
+
+#### Features
+
+- Full-width hero with background image
+- Search inputs for breed and discipline
+- Gradient overlay for text readability
+- Call-to-action button
+
+```tsx title="component/home/HeroSection.tsx"
+export default function HeroSection() {
+  return (
+    <section className="relative h-[600px] flex items-center justify-center overflow-hidden">
+      <div className="absolute inset-0">
+        <Image 
+          src="/img/hero-bg.webp" 
+          alt="Fondo ecuestre premium"
+          fill
+          priority
+          className="object-cover object-center"
+        />
+      </div>
+      <div className="absolute inset-0 hero-gradient" />
+      
+      <div className="relative z-10 max-w-4xl mx-auto px-4 text-center">
+        <h1 className="text-5xl md:text-7xl font-serif italic text-white leading-tight mb-6">
+          Confianza <span className="text-equestrian-gold">Inquebrantable</span>
+        </h1>
+        {/* Search form */}
+      </div>
+    </section>
+  );
+}
+```
+
+### FeaturedHorses
+
+Displays featured horses fetched from the API.
+
+**Location:** `component/home/FeaturedHorses.tsx`
+
+**Type:** Async Server Component
+
+#### Features
+
+- Server-side data fetching
+- Error handling for API failures
+- Responsive grid layout
+- Verified badge display
+
+```tsx title="component/home/FeaturedHorses.tsx"
+async function getHorses() {
+  try {
+    const res = await fetch('https://s02-26-e33-horse-trust-api.vercel.app/api/horses', {
+      next: { revalidate: 60 } 
+    });
+
+    if (!res.ok) throw new Error('Error al traer los caballos');
+    
+    const jsonResponse = await res.json();
+    const horsesArray = Array.isArray(jsonResponse) ? jsonResponse : jsonResponse.data;
+    
+    return horsesArray.slice(0, 3);
+  } catch (error) {
+    console.error("Error:", error);
+    return []; 
+  }
+}
+
+export default async function FeaturedHorses() {
+  const realHorses = await getHorses();
+
+  return (
+    <section className="py-24 max-w-7xl mx-auto px-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+        {realHorses.map((horse: any) => (
+          <div key={horse.ID} className="luxury-card-hover group">
+            {/* Horse card content */}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+```
+
+### SecuritySection
+
+Highlights platform security features.
+
+**Location:** `component/home/SecuritySection.tsx`
+
+**Type:** Server Component
+
+#### Features
+
+- Two-column layout with image and text
+- Icon-based feature highlights
+- Statistics display
+- Call-to-action section
+
+```tsx title="component/home/SecuritySection.tsx"
+export default function SecuritySection() {
+  return (
+    <>
+      <section className="bg-equestrian-navy py-32 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 grid lg:grid-cols-2 gap-20 items-center">
+          <div>
+            <h3 className="text-4xl md:text-5xl font-serif text-white mb-8">
+              El Motor de Verificación de HorseTrust
+            </h3>
+            <div className="grid sm:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-full border flex items-center justify-center">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <h4 className="text-white font-bold">Auditoría de Propiedad</h4>
+                <p className="text-slate-500 text-sm">Títulos legales verificados</p>
+              </div>
+            </div>
+          </div>
+          <div className="relative group">
+            <Image src="/img/caballo-security-section.webp" width={800} height={1000} />
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+```
+
+## Marketplace Components
+
+### HorseCard
+
+Individual horse listing card.
+
+**Location:** `component/marketplace/HorseCard.tsx`
+
+**Type:** Server Component
+
+#### Interface
+
+```tsx
+interface HorseProps {
+  horse: {
+    ID: number;
+    NAME: string;
+    AGE: number;
+    BREED: string;
+    DISCIPLINE: string;
+    LOCATION: string;
+    PRICE: number;
+    SELLER_VERIFIED: string;
+    MAIN_PHOTO: string;
+  };
+}
+```
+
+#### Full Implementation
+
+```tsx title="component/marketplace/HorseCard.tsx"
+export default function HorseCard({ horse }: HorseProps) {
+  const formattedPrice = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(horse.PRICE);
+
+  return (
+    <div className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+      <div className="relative aspect-[4/3] overflow-hidden">
+        <img 
+          src={horse.MAIN_PHOTO} 
+          alt={horse.NAME} 
+          className="h-full w-full object-cover group-hover:scale-105 transition-transform" 
+        />
+        
+        {horse.SELLER_VERIFIED === 'verified' && (
+          <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded">
+            <ShieldCheck className="text-equestrian-navy w-4 h-4" />
+            <span className="text-[10px] font-bold">Verificado</span>
+          </div>
+        )}
+      </div>
+
+      <div className="p-5">
+        <div className="flex justify-between items-start mb-2">
+          <h3 className="text-lg font-bold">{horse.NAME}</h3>
+          <span className="text-lg font-black">{formattedPrice}</span>
+        </div>
+        
+        <div className="flex flex-wrap gap-2 mb-4">
+          <span className="text-[11px] font-bold bg-slate-100 px-2 py-1 rounded-full">
+            {horse.BREED}
+          </span>
+          <span className="text-[11px] font-bold bg-slate-100 px-2 py-1 rounded-full">
+            {horse.AGE} años
+          </span>
+        </div>
+        
+        <Link 
+          href={`/marketplace/${horse.ID}`}
+          className="w-full block text-center bg-equestrian-navy text-white font-bold py-2 px-4 rounded"
+        >
+          Ver Detalles
+        </Link>
+      </div>
+    </div>
+  );
+}
+```
+
+### FilterSideBar
+
+Sidebar with filtering options for marketplace.
+
+**Location:** `component/marketplace/FilterSideBar.tsx`
+
+**Type:** Client Component
+
+#### Interface
+
+```tsx
+interface FilterProps {
+  filters: {
+    minPrice: string;
+    maxPrice: string;
+    breed: string;
+    disciplines: string[];
+    location: string;
+    verifiedOnly: boolean;
+  };
+  setFilters: React.Dispatch<React.SetStateAction<any>>;
+  clearFilters: () => void;
+}
+```
+
+#### Implementation
+
+```tsx title="component/marketplace/FilterSideBar.tsx"
+"use client";
+
+export default function FilterSideBar({ filters, setFilters, clearFilters }: FilterProps) {
+  const handleDisciplineToggle = (disc: string) => {
+    setFilters((prev: any) => {
+      const current = prev.disciplines;
+      const updated = current.includes(disc) 
+        ? current.filter((d: string) => d !== disc) 
+        : [...current, disc];
+      return { ...prev, disciplines: updated };
+    });
+  };
+
+  return (
+    <aside className="hidden lg:block w-1/4 space-y-8">
+      <div className="sticky top-24">
+        <h3 className="text-lg font-bold">Filtros</h3>
+        
+        {/* Price Range */}
+        <div className="space-y-4">
+          <label className="text-sm font-semibold">Inversión (USD)</label>
+          <div className="flex items-center gap-3">
+            <input 
+              type="number" 
+              placeholder="Mínimo"
+              value={filters.minPrice}
+              onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })}
+              className="w-full rounded-lg border"
+            />
+            <input 
+              type="number" 
+              placeholder="Máximo"
+              value={filters.maxPrice}
+              onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
+              className="w-full rounded-lg border"
+            />
+          </div>
+        </div>
+        
+        {/* Breed Selection */}
+        <div>
+          <select 
+            value={filters.breed}
+            onChange={(e) => setFilters({ ...filters, breed: e.target.value })}
+          >
+            <option>Todas las Razas</option>
+            <option>Pura Sangre</option>
+            <option>Árabe</option>
+          </select>
+        </div>
+        
+        {/* Discipline Checkboxes */}
+        <div>
+          {['Salto', 'Adiestramiento', 'Polo', 'Carreras'].map((disc) => (
+            <label key={disc}>
+              <input 
+                type="checkbox" 
+                checked={filters.disciplines.includes(disc)}
+                onChange={() => handleDisciplineToggle(disc)}
+              />
+              {disc}
+            </label>
+          ))}
+        </div>
+      </div>
+    </aside>
+  );
+}
+```
+
+## Component Best Practices
+
+### Server vs Client Components
+
+- Use Server Components by default for better performance
+- Add `"use client"` only when needed (interactivity, state, effects)
+- Server Components can fetch data directly
+
+### TypeScript Interfaces
+
+Define clear interfaces for all component props:
+
+```tsx
+interface ComponentProps {
+  data: DataType;
+  onAction?: () => void;
+}
+```
+
+### Styling Conventions
+
+- Use Tailwind utility classes
+- Leverage custom color variables from theme
+- Apply responsive design with Tailwind breakpoints
+
+### Icon Usage
+
+Import icons from `lucide-react`:
+
+```tsx
+import { ShieldCheck, MapPin, Award } from 'lucide-react';
+```
+
+## Reusability Guidelines
+
+1. Extract common UI patterns into reusable components
+2. Use composition over inheritance
+3. Keep components focused on a single responsibility
+4. Pass data through props, not global state
+5. Co-locate styles with components using Tailwind

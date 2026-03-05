@@ -1,0 +1,378 @@
+---
+title: Database Models
+description: Mongoose schemas and models for the Horse Trust platform
+---
+
+## Overview
+
+The Horse Trust platform uses **MongoDB** with **Mongoose** for data modeling. All models include automatic timestamps and validation.
+
+## User Model
+
+Manages user accounts with roles (admin, seller) and authentication.
+
+### Schema Definition
+
+```typescript
+import { Schema, model } from "mongoose";
+import bcrypt from "bcryptjs";
+
+const userSchema = new Schema<IUser>(
+  {
+    email: {
+      type: String,
+      required: [true, "Email is required"],
+      unique: true,
+      lowercase: true,
+      trim: true,
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Invalid email format"],
+    },
+    password_hash: { type: String, required: true },
+    role: { type: String, enum: ["admin", "seller"], required: true },
+    full_name: { type: String, required: [true, "Full name is required"], trim: true },
+    phone: {
+      type: String,
+      trim: true,
+      match: [/^\+?[1-9][0-9]{7,14}$/, "Invalid phone format. Use international format: +5491112345678"],
+    },
+    is_email_verified: { type: Boolean, default: false },
+    is_phone_verified: { type: Boolean, default: false },
+    email_verification_token: { type: String },
+    profile_picture_url: { type: String },
+    seller_profile: { type: sellerProfileSchema, default: null },
+    is_active: { type: Boolean, default: true },
+    last_login: { type: Date },
+  },
+  {
+    timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
+  }
+);
+```
+
+**Reference**: models/User.ts:19-48
+
+### Seller Profile Sub-Schema
+
+Sellers have additional verification fields:
+
+```typescript
+const sellerProfileSchema = new Schema(
+  {
+    identity_document: { type: String },
+    selfie_url: { type: String },
+    verification_status: { 
+      type: String, 
+      enum: ["pending", "verified", "rejected"], 
+      default: "pending" 
+    },
+    verification_method: { type: String, enum: ["manual", "automatic"] },
+    verified_at: { type: Date },
+    verified_by: { type: Schema.Types.ObjectId, ref: "User" },
+    rejection_reason: { type: String },
+    is_verified_badge: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+```
+
+**Reference**: models/User.ts:5-17
+
+### Pre-save Hook (Password Hashing)
+
+```typescript
+userSchema.pre("save", async function (next) {
+  // Only hash when password_hash field is modified
+  if (!this.isModified("password_hash")) return;
+  const salt = await bcrypt.genSalt(Number(process.env.BCRYPT_SALT_ROUNDS) || 12);
+  this.password_hash = await bcrypt.hash(this.password_hash, salt);
+});
+```
+
+**Reference**: models/User.ts:50-57
+
+### Instance Methods
+
+```typescript
+// Compare password for authentication
+userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
+  return bcrypt.compare(candidatePassword, this.password_hash);
+};
+
+// Remove sensitive fields from JSON output
+userSchema.methods.toJSON = function () {
+  const obj = this.toObject();
+  delete obj.password_hash;
+  delete obj.email_verification_token;
+  return obj;
+};
+```
+
+**Reference**: models/User.ts:59-70
+
+## Horse Model
+
+Represents horses listed for sale on the platform.
+
+### Schema Definition
+
+```typescript
+const horseSchema = new Schema<IHorse>(
+  {
+    seller_id: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    name: { type: String, required: [true, "Horse name is required"], trim: true },
+    age: { type: Number, required: true, min: 0, max: 40 },
+    breed: { type: String, required: [true, "Breed is required"], trim: true },
+    discipline: { type: String, required: [true, "Discipline is required"], trim: true },
+    pedigree: { type: String },
+    location: { type: locationSchema, required: true },
+    price: { type: Number, min: 0 },
+    currency: { type: String, enum: ["USD", "EUR", "ARS", "BRL", "MXN"], default: "USD" },
+    photos: {
+      type: [photoSchema],
+      validate: {
+        validator: (photos: unknown[]) => photos.length >= 3,
+        message: "At least 3 photos are required",
+      },
+    },
+    videos: { type: [videoSchema], default: [] },
+    status: { type: String, enum: ["active", "sold", "paused", "draft"], default: "draft" },
+    views_count: { type: Number, default: 0 },
+  },
+  {
+    timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
+  }
+);
+```
+
+**Reference**: models/Horse.ts:40-65
+
+### Location Sub-Schema
+
+```typescript
+const locationSchema = new Schema(
+  {
+    country: { type: String, required: true },
+    region: { type: String, required: true },
+    city: { type: String },
+    coordinates: {
+      lat: { type: Number },
+      lng: { type: Number },
+    },
+  },
+  { _id: false }
+);
+```
+
+**Reference**: models/Horse.ts:27-38
+
+### Photo Sub-Schema
+
+```typescript
+const photoSchema = new Schema(
+  {
+    url: { type: String, required: true },
+    caption: { type: String },
+    is_cover: { type: Boolean, default: false },
+    uploaded_at: { type: Date, default: () => new Date() },
+  },
+  { _id: true }
+);
+```
+
+**Reference**: models/Horse.ts:4-12
+
+### Video Sub-Schema
+
+```typescript
+const videoSchema = new Schema(
+  {
+    url: { type: String, required: true },
+    embed_url: { type: String },
+    video_type: { type: String, enum: ["training", "competition", "other"], required: true },
+    title: { type: String },
+    description: { type: String },
+    recorded_at: { type: Date, required: true },
+    uploaded_at: { type: Date, default: () => new Date() },
+  },
+  { _id: true }
+);
+```
+
+**Reference**: models/Horse.ts:14-25
+
+### Full-text Search Index
+
+```typescript
+horseSchema.index(
+  { name: "text", breed: "text", discipline: "text", pedigree: "text" },
+  { default_language: "spanish" }
+);
+```
+
+**Reference**: models/Horse.ts:67-71
+
+### Pre-save Hook (Video Embed URLs)
+
+Automatically converts YouTube and Vimeo URLs to embed format:
+
+```typescript
+horseSchema.pre("save", function (next) {
+  this.videos = this.videos.map((video) => {
+    if (!video.embed_url && video.url) {
+      video.embed_url = toEmbedUrl(video.url);
+    }
+    return video;
+  });
+});
+
+function toEmbedUrl(url: string): string {
+  // YouTube
+  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+  if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
+  // Vimeo
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+  if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+  return url;
+}
+```
+
+**Reference**: models/Horse.ts:74-91
+
+## VetRecord Model
+
+Stores veterinary health records for horses.
+
+### Schema Definition
+
+```typescript
+const vetRecordSchema = new Schema<IVetRecord>(
+  {
+    horse_id: { type: Schema.Types.ObjectId, ref: "Horse", required: true, index: true },
+    vet_id: { type: Schema.Types.ObjectId, ref: "User" },
+    review_date: { type: Date, required: true },
+    health_status: { type: String, required: true },
+    certificates: { type: [certificateSchema], default: [] },
+    vaccines: { type: [vaccineSchema], default: [] },
+    validation_status: { 
+      type: String, 
+      enum: ["pending", "validated", "rejected"], 
+      default: "pending" 
+    },
+    validated_by: { type: Schema.Types.ObjectId, ref: "User" },
+    validated_at: { type: Date },
+    rejection_reason: { type: String },
+    notes: { type: String },
+  },
+  {
+    timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
+  }
+);
+```
+
+**Reference**: models/VetRecord.ts:24-41
+
+### Vaccine Sub-Schema
+
+```typescript
+const vaccineSchema = new Schema(
+  {
+    name: { type: String, required: true },
+    applied_at: { type: Date, required: true },
+    next_due_at: { type: Date },
+    batch_number: { type: String },
+  },
+  { _id: false }
+);
+```
+
+**Reference**: models/VetRecord.ts:5-13
+
+### Certificate Sub-Schema
+
+```typescript
+const certificateSchema = new Schema(
+  {
+    url: { type: String, required: true },
+    title: { type: String },
+    uploaded_at: { type: Date, default: () => new Date() },
+  },
+  { _id: true }
+);
+```
+
+**Reference**: models/VetRecord.ts:15-22
+
+## Conversation Model
+
+Manages chat conversations between users.
+
+### Schema Definition
+
+```typescript
+const conversationSchema = new Schema<IConversation>(
+  {
+    participants: {
+      type: [{ type: Schema.Types.ObjectId, ref: "User" }],
+      required: true,
+      validate: {
+        validator: (arr: unknown[]) => arr.length === 2,
+        message: "A conversation requires exactly 2 participants",
+      },
+    },
+    horse_id: { type: Schema.Types.ObjectId, ref: "Horse" },
+    last_message: { type: lastMessageSchema },
+  },
+  {
+    timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
+  }
+);
+
+conversationSchema.index({ participants: 1 });
+```
+
+**Reference**: models/VetRecord.ts:56-75
+
+### Last Message Sub-Schema
+
+```typescript
+const lastMessageSchema = new Schema(
+  {
+    text: { type: String },
+    sender_id: { type: Schema.Types.ObjectId, ref: "User" },
+    sent_at: { type: Date },
+    is_read: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+```
+
+**Reference**: models/VetRecord.ts:46-54
+
+## Message Model
+
+Stores individual chat messages.
+
+### Schema Definition
+
+```typescript
+const messageSchema = new Schema<IMessage>(
+  {
+    conversation_id: { 
+      type: Schema.Types.ObjectId, 
+      ref: "Conversation", 
+      required: true, 
+      index: true 
+    },
+    sender_id: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    text: { type: String, required: true, maxlength: 2000 },
+    is_read: { type: Boolean, default: false },
+    read_at: { type: Date },
+    deleted_at: { type: Date },
+  },
+  {
+    timestamps: { createdAt: "sent_at", updatedAt: false },
+  }
+);
+```
+
+**Reference**: models/VetRecord.ts:79-91

@@ -1,0 +1,515 @@
+---
+title: Styling
+description: Tailwind CSS configuration and custom design system for Horse Trust
+---
+
+## Styling Approach
+
+Horse Trust uses **Tailwind CSS 4** as the primary styling solution, combined with a custom equestrian-themed design system. All styles are utility-first with custom CSS variables for brand consistency.
+
+## Tailwind CSS Configuration
+
+### Installation
+
+```json title="package.json"
+{
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "tailwindcss": "^4"
+  }
+}
+```
+
+### Global Styles
+
+**Location:** `app/globals.css`
+
+```css title="app/globals.css"
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-equestrian-green: #14532d; /* Verde bosque oscuro */
+  --color-equestrian-navy: #0f172a;  /* Azul marino profundo */
+  --color-equestrian-gold: #C5A059;  /* Dorado lujo */
+  --color-equestrian-sand: #fdfbf7;  /* Blanco arena */
+  
+  --color-background-light: #fdfbf7;
+  --color-background-dark: #0f172a;
+
+  /* Tipografías */
+  --font-display: "Public Sans", sans-serif;
+  --font-serif: "Playfair Display", serif;
+}
+```
+
+## Custom Color Palette
+
+### Brand Colors
+
+The Horse Trust design system uses an equestrian-inspired color palette:
+
+| Color Name | CSS Variable | Hex Value | Usage |
+|------------|--------------|-----------|-------|
+| **Equestrian Green** | `--color-equestrian-green` | `#14532d` | Primary actions, success states |
+| **Equestrian Navy** | `--color-equestrian-navy` | `#0f172a` | Headers, dark backgrounds |
+| **Equestrian Gold** | `--color-equestrian-gold` | `#C5A059` | Accents, luxury details, CTAs |
+| **Equestrian Sand** | `--color-equestrian-sand` | `#fdfbf7` | Light backgrounds, cards |
+
+### Using Custom Colors
+
+Tailwind automatically generates utility classes from CSS variables:
+
+```tsx
+// Background colors
+<div className="bg-equestrian-navy" />
+<div className="bg-equestrian-gold" />
+<div className="bg-equestrian-sand" />
+
+// Text colors
+<h1 className="text-equestrian-navy" />
+<span className="text-equestrian-gold" />
+
+// Border colors
+<div className="border border-equestrian-navy" />
+
+// Hover states
+<button className="hover:bg-equestrian-gold" />
+<a className="hover:text-equestrian-gold" />
+```
+
+## Typography System
+
+### Font Families
+
+Two Google Fonts are loaded for typography hierarchy:
+
+**1. Public Sans (Sans-serif)** - Body text and UI elements
+
+**2. Playfair Display (Serif)** - Headings and luxury accents
+
+### Font Configuration
+
+```css
+@theme {
+  --font-display: "Public Sans", sans-serif;
+  --font-serif: "Playfair Display", serif;
+}
+
+body {
+  font-family: var(--font-display);
+}
+```
+
+### Typography Classes
+
+```tsx
+// Display font (Public Sans)
+<div className="font-display" />
+
+// Serif font (Playfair Display) 
+<h1 className="font-serif" />
+
+// Font weights
+<p className="font-light" />    // 300
+<p className="font-normal" />   // 400
+<p className="font-medium" />   // 500
+<p className="font-semibold" /> // 600
+<p className="font-bold" />     // 700
+<p className="font-black" />    // 900
+
+// Text sizes
+<p className="text-xs" />   // 0.75rem
+<p className="text-sm" />   // 0.875rem
+<p className="text-base" /> // 1rem
+<p className="text-lg" />   // 1.125rem
+<p className="text-xl" />   // 1.25rem
+<p className="text-2xl" />  // 1.5rem
+<p className="text-4xl" />  // 2.25rem
+<p className="text-7xl" />  // 4.5rem
+```
+
+### Typography Examples
+
+```tsx title="Heading Example"
+<h1 className="text-5xl md:text-7xl font-serif italic text-white">
+  Confianza <span className="text-equestrian-gold not-italic font-bold">Inquebrantable</span>
+</h1>
+```
+
+```tsx title="Body Text Example"
+<p className="text-slate-400 text-lg leading-relaxed max-w-lg">
+  Hemos redefinido el comercio de caballos de alto valor.
+</p>
+```
+
+```tsx title="Small Caps Label"
+<label className="text-xs font-black uppercase tracking-widest text-slate-500">
+  Correo Electrónico
+</label>
+```
+
+## Theme Configuration
+
+### Root CSS Variables
+
+```css
+:root {
+  --background: var(--color-equestrian-sand);
+  --foreground: var(--color-equestrian-navy);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: var(--color-equestrian-navy);
+    --foreground: #f8f9fa;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-display);
+}
+```
+
+### Dark Mode Support
+
+Tailwind's dark mode is configured for automatic theme switching:
+
+```tsx
+// Responsive dark mode classes
+<div className="bg-white dark:bg-equestrian-navy" />
+<p className="text-slate-900 dark:text-slate-100" />
+<header className="bg-white/95 dark:bg-equestrian-navy/95" />
+```
+
+## Custom CSS Classes
+
+### Hero Gradient
+
+```css
+.hero-gradient {
+  background: linear-gradient(
+    rgba(15, 23, 42, 0.7) 0%, 
+    rgba(15, 23, 42, 0.9) 100%
+  );
+}
+```
+
+**Usage:**
+
+```tsx
+<div className="absolute inset-0 hero-gradient" />
+```
+
+### Luxury Card Hover
+
+```css
+.luxury-card-hover {
+  @apply transition-all duration-500 ease-out;
+}
+
+.luxury-card-hover:hover {
+  @apply -translate-y-2 shadow-[0_20px_50px_rgba(0,0,0,0.1)];
+}
+```
+
+**Usage:**
+
+```tsx
+<div className="luxury-card-hover group bg-white rounded-lg">
+  {/* Card content */}
+</div>
+```
+
+## Scrollbar Styling
+
+Custom scrollbar for both light and dark themes:
+
+```css title="app/globals.css"
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Chrome, Safari, Edge */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+
+  .dark ::-webkit-scrollbar-track {
+    background: var(--color-equestrian-navy);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 20px;
+    border: 2px solid #f1f5f9;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: var(--color-equestrian-gold);
+    border: 2px solid var(--color-background-dark);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-equestrian-gold);
+  }
+}
+```
+
+## Component Styling Patterns
+
+### Button Styles
+
+```tsx
+// Primary button
+<button className="bg-equestrian-navy text-white px-8 py-4 rounded-xl font-bold text-sm uppercase tracking-widest hover:bg-slate-800 transition-all">
+  Publicar
+</button>
+
+// Gold accent button
+<button className="bg-equestrian-gold text-equestrian-navy px-10 py-5 rounded-lg font-bold hover:brightness-110 transition-all shadow-xl">
+  Acceder al Mercado
+</button>
+
+// Outline button
+<button className="border border-white/30 text-white px-10 py-5 rounded-lg font-bold hover:bg-white/10 transition-all">
+  Registrarme
+</button>
+```
+
+### Card Styles
+
+```tsx
+// Standard card
+<div className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border border-slate-100">
+  {/* Content */}
+</div>
+
+// Luxury card with hover effect
+<div className="luxury-card-hover group bg-white border border-slate-100 rounded-lg overflow-hidden shadow-sm">
+  {/* Content */}
+</div>
+
+// Dark card with backdrop blur
+<div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/20">
+  {/* Content */}
+</div>
+```
+
+### Input Styles
+
+```tsx
+// Text input with icon
+<div className="relative group">
+  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+    <Mail className="w-5 h-5" />
+  </div>
+  <input 
+    type="email"
+    className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-equestrian-navy/20 focus:border-equestrian-navy transition-all"
+    placeholder="usuario@ejemplo.com"
+  />
+</div>
+```
+
+### Badge Styles
+
+```tsx
+// Verified badge
+<div className="flex items-center gap-2 bg-white/90 backdrop-blur-md py-1.5 px-3 rounded-full border border-white/20 shadow-lg">
+  <BadgeCheck className="text-equestrian-green w-4 h-4" />
+  <span className="text-[10px] font-bold text-equestrian-navy uppercase tracking-wider">
+    Verificado
+  </span>
+</div>
+
+// Category badge
+<span className="text-[11px] font-bold bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
+  Pura Sangre
+</span>
+
+// Status badge
+<span className="inline-block py-1 px-4 rounded-full bg-equestrian-gold/20 text-equestrian-gold text-[10px] font-bold uppercase tracking-[0.2em] border border-equestrian-gold/30">
+  Red Ecuestre Exclusiva
+</span>
+```
+
+## Responsive Design
+
+### Breakpoints
+
+Tailwind's default breakpoints:
+
+| Breakpoint | Min Width | Prefix |
+|------------|-----------|--------|
+| Small | 640px | `sm:` |
+| Medium | 768px | `md:` |
+| Large | 1024px | `lg:` |
+| X-Large | 1280px | `xl:` |
+| 2X-Large | 1536px | `2xl:` |
+
+### Responsive Examples
+
+```tsx
+// Responsive text size
+<h1 className="text-4xl md:text-6xl lg:text-7xl">
+  Heading
+</h1>
+
+// Responsive grid
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+  {/* Items */}
+</div>
+
+// Responsive padding
+<div className="px-4 sm:px-6 lg:px-8">
+  {/* Content */}
+</div>
+
+// Responsive visibility
+<div className="hidden lg:block">
+  {/* Desktop only */}
+</div>
+<div className="block lg:hidden">
+  {/* Mobile only */}
+</div>
+```
+
+## Layout Utilities
+
+### Container
+
+```tsx
+<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+  {/* Centered content with responsive padding */}
+</div>
+```
+
+### Flexbox
+
+```tsx
+<div className="flex items-center justify-between gap-6">
+  {/* Flex items */}
+</div>
+
+<div className="flex flex-col md:flex-row gap-4">
+  {/* Responsive flex direction */}
+</div>
+```
+
+### Grid
+
+```tsx
+<div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-12">
+  {/* Responsive grid */}
+</div>
+```
+
+## Animation & Transitions
+
+### Transition Classes
+
+```tsx
+// Standard transition
+<div className="transition-all duration-300 ease-out" />
+
+// Hover transform
+<div className="hover:-translate-y-2 transition-transform" />
+
+// Group hover effects
+<div className="group">
+  <img className="group-hover:scale-110 transition-transform duration-1000" />
+  <h4 className="group-hover:text-equestrian-gold transition-colors" />
+</div>
+```
+
+### Backdrop Effects
+
+```tsx
+// Backdrop blur
+<div className="backdrop-blur-md bg-white/10" />
+
+// Backdrop with border
+<div className="backdrop-blur-sm bg-white/90 border border-white/20" />
+```
+
+## Best Practices
+
+### 1. Use Semantic Color Names
+
+```tsx
+// Good
+<button className="bg-equestrian-gold text-equestrian-navy" />
+
+// Avoid
+<button className="bg-[#C5A059] text-[#0f172a]" />
+```
+
+### 2. Leverage Tailwind's Utility Classes
+
+```tsx
+// Good
+<div className="flex items-center gap-4 p-6 rounded-xl" />
+
+// Avoid inline styles
+<div style={{ display: 'flex', padding: '1.5rem' }} />
+```
+
+### 3. Use Responsive Prefixes
+
+```tsx
+// Mobile-first responsive design
+<div className="text-sm md:text-base lg:text-lg" />
+```
+
+### 4. Group Hover Effects
+
+```tsx
+<div className="group">
+  <img className="group-hover:scale-110" />
+  <p className="group-hover:text-gold" />
+</div>
+```
+
+### 5. Consistent Spacing
+
+Use Tailwind's spacing scale (4px increments):
+
+```tsx
+<div className="p-4 mb-6 space-y-8" />
+```
+
+## Design Tokens Reference
+
+### Spacing Scale
+
+- `p-2` → 8px
+- `p-4` → 16px
+- `p-6` → 24px
+- `p-8` → 32px
+- `p-12` → 48px
+
+### Border Radius
+
+- `rounded` → 4px
+- `rounded-lg` → 8px
+- `rounded-xl` → 12px
+- `rounded-2xl` → 16px
+- `rounded-full` → 9999px
+
+### Shadow Scale
+
+- `shadow-sm` → Subtle shadow
+- `shadow` → Standard shadow
+- `shadow-md` → Medium shadow
+- `shadow-lg` → Large shadow
+- `shadow-xl` → Extra large shadow
+- `shadow-2xl` → Dramatic shadow

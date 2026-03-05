@@ -1,0 +1,197 @@
+---
+title: Backend Overview
+description: Express.js backend architecture for the Horse Trust platform
+---
+
+## Architecture
+
+The Horse Trust backend is built with **Express.js** and **TypeScript**, providing a RESTful API and real-time communication via Socket.io.
+
+### Tech Stack
+
+- **Runtime**: Node.js with TypeScript
+- **Framework**: Express.js
+- **Database**: MongoDB with Mongoose ODM
+- **Authentication**: JWT (JSON Web Tokens)
+- **Real-time**: Socket.io
+- **Security**: Helmet, CORS, Rate Limiting
+
+## Server Setup
+
+The application is initialized in two main files:
+
+### app.ts
+
+Configures the Express application with middleware and routes:
+
+```typescript
+import express, { Application } from "express";
+import cors from "cors";
+import helmet from "helmet";
+import morgan from "morgan";
+import { rateLimit } from "express-rate-limit";
+
+const app: Application = express();
+
+// Security headers
+app.use(helmet());
+
+// CORS configuration
+const allowedOrigins = (process.env.CORS_ORIGINS || "http://localhost:5173").split(",");
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  })
+);
+
+// Body parsing
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true }));
+
+// Logging
+if (process.env.NODE_ENV !== "test") {
+  app.use(morgan("dev"));
+}
+```
+
+**Reference**: app.ts:1-34
+
+### Rate Limiting
+
+Two rate limiters protect the API:
+
+```typescript
+// Global rate limiter (15 min window, 100 requests)
+const limiter = rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_MAX) || 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many requests, please try again later" },
+});
+app.use(limiter);
+
+// Strict limiter for auth endpoints (15 min window, 10 requests)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { success: false, message: "Too many auth attempts. Try again in 15 minutes." },
+});
+```
+
+**Reference**: app.ts:36-51
+
+### Routes
+
+API routes are organized by domain:
+
+```typescript
+app.use("/api/auth",   authLimiter, authRoutes);
+app.use("/api/horses", horseRoutes);
+app.use("/api/admin",  adminRoutes);
+app.use("/api/chat",   chatRoutes);
+```
+
+**Reference**: app.ts:71-74
+
+### Error Handling
+
+```typescript
+// Validation error handler
+app.use((req: Request, res: Response, next: NextFunction): void => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res.status(422).json({ success: false, errors: errors.array() });
+    return;
+  }
+  next();
+});
+
+// 404 handler
+app.use((_req, res) => {
+  res.status(404).json({ success: false, message: "Route not found" });
+});
+
+// Global error handler
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  console.error("Unhandled error:", err.message);
+  res.status(500).json({ success: false, message: "Internal server error" });
+});
+```
+
+**Reference**: app.ts:53-85
+
+## index.ts
+
+Creates the HTTP server and initializes Socket.io:
+
+```typescript
+import http from "http";
+import { Server as SocketServer } from "socket.io";
+import app from "./app";
+import connectDB from "./config/db";
+
+const PORT = process.env.PORT || 3000;
+const httpServer = http.createServer(app);
+
+// Socket.io setup
+const io = new SocketServer(httpServer, {
+  cors: {
+    origin: (process.env.CORS_ORIGINS || "http://localhost:5173").split(","),
+    credentials: true,
+  },
+});
+
+// Start server
+const start = async () => {
+  await connectDB();
+  
+  httpServer.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`📡 Socket.io ready`);
+    console.log(`🌱 Environment: ${process.env.NODE_ENV}`);
+  });
+
+  // Graceful shutdown
+  process.on("SIGTERM", () => {
+    console.log("SIGTERM received. Shutting down...");
+    httpServer.close(() => process.exit(0));
+  });
+};
+
+start();
+```
+
+**Reference**: index.ts:1-142
+
+## Environment Variables
+
+Required environment variables:
+
+- `PORT` - Server port (default: 3000)
+- `CORS_ORIGINS` - Comma-separated allowed origins
+- `JWT_SECRET` - Secret for signing JWT tokens
+- `RATE_LIMIT_WINDOW_MS` - Rate limit window in milliseconds
+- `RATE_LIMIT_MAX` - Maximum requests per window
+- `BCRYPT_SALT_ROUNDS` - Salt rounds for password hashing
+- `NODE_ENV` - Environment (development, production, test)
+
+## Health Check
+
+Health check endpoint to verify server status:
+
+```typescript
+app.get("/health", (_req, res) => {
+  res.json({ 
+    success: true, 
+    message: "Horse Portal API is running", 
+    env: process.env.NODE_ENV 
+  });
+});
+```
+
+**Reference**: app.ts:65-67

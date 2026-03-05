@@ -1,0 +1,372 @@
+---
+title: Setup Guide
+description: Step-by-step guide to set up the Horse Trust platform locally
+---
+
+This guide will walk you through setting up the Horse Trust platform for local development.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+<CardGroup cols={2}>
+  <Card title="Node.js" icon="node-js">
+    Version 24.13.0 or higher recommended
+  </Card>
+  <Card title="Git" icon="git">
+    Version 2.43.0 or higher
+  </Card>
+  <Card title="MongoDB" icon="database">
+    MongoDB Atlas account or local MongoDB instance
+  </Card>
+  <Card title="npm" icon="box">
+    Comes with Node.js installation
+  </Card>
+</CardGroup>
+
+## Project Structure
+
+The Horse Trust platform is a monorepo with two main applications:
+
+```bash
+S02-26-Equipo-33-Web-App/
+├── client/          # Next.js frontend application
+├── server/          # Express.js backend application
+├── README.md
+└── CONTRIBUTING.md
+```
+
+## Clone the Repository
+
+First, clone the repository and navigate to the project directory:
+
+```bash
+git clone git@github.com:No-Country-simulation/S02-26-Equipo-33-Web-App.git
+cd S02-26-Equipo-33-Web-App
+```
+
+## Backend Setup (Server)
+
+The backend is built with Express.js and TypeScript, using MongoDB as the database.
+
+<Steps>
+  <Step title="Navigate to Server Directory">
+    ```bash
+    cd server
+    ```
+  </Step>
+  
+  <Step title="Install Dependencies">
+    Install all required npm packages:
+    
+    ```bash
+    npm install
+    ```
+    
+    This will install:
+    - **Express.js** - Web framework
+    - **Mongoose** - MongoDB ODM
+    - **Socket.io** - Real-time messaging
+    - **JWT & bcryptjs** - Authentication
+    - **TypeScript** - Type safety
+    - And other dependencies
+  </Step>
+  
+  <Step title="Configure Environment Variables">
+    Copy the example environment file and configure it:
+    
+    ```bash
+    cp .env.example .env
+    ```
+    
+    Edit the `.env` file with your configuration:
+    
+    ```bash
+    PORT=8031
+    NODE_ENV=development
+    MONGO_URI=mongodb+srv://your-username:your-password@cluster.mongodb.net/horsetrust
+    JWT_SECRET=your-secret-key-change-this
+    JWT_EXPIRES_IN=10d
+    BCRYPT_SALT_ROUNDS=12
+    CORS_ORIGINS=*
+    ```
+    
+    <Info>
+      See the [Environment Variables](/deployment/environment-variables) guide for detailed configuration options.
+    </Info>
+  </Step>
+  
+  <Step title="Set Up MongoDB Database">
+    You have two options for MongoDB:
+    
+    **Option A: MongoDB Atlas (Recommended)**
+    
+    1. Create a free account at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
+    2. Create a new cluster
+    3. Create a database user with password
+    4. Whitelist your IP address (or use 0.0.0.0/0 for development)
+    5. Get your connection string and update `MONGO_URI` in `.env`
+    
+    **Option B: Local MongoDB**
+    
+    ```bash
+    # Install MongoDB locally
+    # macOS
+    brew install mongodb-community
+    brew services start mongodb-community
+    
+    # Ubuntu
+    sudo apt-get install mongodb
+    sudo systemctl start mongodb
+    
+    # Use local connection string
+    MONGO_URI=mongodb://localhost:27017/horsetrust
+    ```
+  </Step>
+  
+  <Step title="Start Development Server">
+    Run the server in development mode with hot-reload:
+    
+    ```bash
+    npm run dev
+    ```
+    
+    The server will start on `http://localhost:8031` (or your configured PORT).
+  </Step>
+  
+  <Step title="Verify Server is Running">
+    Test the server endpoint:
+    
+    ```bash
+    curl http://localhost:8031/test
+    ```
+    
+    Expected response:
+    
+    ```json
+    {
+      "success": true,
+      "message": "response Ok!",
+      "data": {
+        "team": "S02-26-Equipo-33-Web-App",
+        "status": "Development"
+      }
+    }
+    ```
+    
+    <Check>
+      If you see this response, your backend is configured correctly!
+    </Check>
+  </Step>
+</Steps>
+
+## Frontend Setup (Client)
+
+The frontend is built with Next.js 16 and React 19, using TypeScript and Tailwind CSS.
+
+<Steps>
+  <Step title="Navigate to Client Directory">
+    Open a new terminal window and navigate to the client directory:
+    
+    ```bash
+    cd client
+    ```
+  </Step>
+  
+  <Step title="Install Dependencies">
+    Install all required npm packages:
+    
+    ```bash
+    npm install
+    ```
+    
+    This will install:
+    - **Next.js 16** - React framework
+    - **React 19** - UI library
+    - **Tailwind CSS** - Styling
+    - **Lucide React** - Icons
+    - **TypeScript** - Type safety
+  </Step>
+  
+  <Step title="Configure Environment Variables">
+    Copy the example environment file:
+    
+    ```bash
+    cp .env.example .env.local
+    ```
+    
+    Edit the `.env.local` file:
+    
+    ```bash
+    # API URL - Point to your backend server
+    NEXT_PUBLIC_API_URL=http://localhost:8031/api
+    
+    # Cloudinary Configuration
+    NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=di2agiylz
+    NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=horse_trust_uploads
+    ```
+    
+    <Info>
+      Variables prefixed with `NEXT_PUBLIC_` are exposed to the browser.
+    </Info>
+  </Step>
+  
+  <Step title="Start Development Server">
+    Run the client in development mode:
+    
+    ```bash
+    npm run dev
+    ```
+    
+    The client will start on `http://localhost:8030`.
+  </Step>
+  
+  <Step title="Access the Application">
+    Open your browser and navigate to:
+    
+    ```
+    http://localhost:8030
+    ```
+    
+    <Check>
+      You should see the Horse Trust application home page!
+    </Check>
+  </Step>
+</Steps>
+
+## Running Both Applications
+
+For full functionality, you need to run both the backend and frontend simultaneously:
+
+**Terminal 1 (Backend):**
+```bash
+cd server
+npm run dev
+# Server running on http://localhost:8031
+```
+
+**Terminal 2 (Frontend):**
+```bash
+cd client
+npm run dev
+# Client running on http://localhost:8030
+```
+
+## Available Scripts
+
+### Server Scripts
+
+```bash
+npm run dev    # Start development server with nodemon (hot-reload)
+npm run build  # Compile TypeScript to JavaScript
+npm start      # Run compiled production server
+```
+
+### Client Scripts
+
+```bash
+npm run dev    # Start Next.js development server (port 8030)
+npm run build  # Build optimized production bundle
+npm start      # Start production server (port 8030)
+npm run lint   # Run ESLint for code quality
+```
+
+## Database Connection Details
+
+The server uses Mongoose to connect to MongoDB with the following configuration:
+
+```typescript
+// Connection settings
+serverSelectionTimeoutMS: 5000   // Wait 5 seconds for server selection
+socketTimeoutMS: 45000            // Socket timeout after 45 seconds
+```
+
+**Connection Events:**
+- `connected` - Successfully connected to MongoDB
+- `error` - Connection error occurred
+- `disconnected` - Connection lost, automatic reconnection attempts
+
+## Real-Time Features (Socket.io)
+
+The platform includes real-time messaging functionality powered by Socket.io:
+
+- **Authentication:** JWT-based socket authentication
+- **Events:** Message sending, typing indicators, read receipts
+- **Rooms:** User-specific and conversation-specific rooms
+- **Port:** WebSocket runs on the same port as HTTP server (8031)
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Port Already in Use">
+    If you see `EADDRINUSE` error:
+    
+    ```bash
+    # Find and kill the process using the port
+    # macOS/Linux
+    lsof -ti:8031 | xargs kill -9
+    lsof -ti:8030 | xargs kill -9
+    
+    # Windows
+    netstat -ano | findstr :8031
+    taskkill /PID <PID> /F
+    ```
+    
+    Or change the PORT in your `.env` file.
+  </Accordion>
+  
+  <Accordion title="MongoDB Connection Failed">
+    Common issues:
+    
+    1. **Invalid connection string** - Check your `MONGO_URI` format
+    2. **IP not whitelisted** - Add your IP in MongoDB Atlas Network Access
+    3. **Wrong credentials** - Verify username and password
+    4. **Network issues** - Check firewall and internet connection
+    
+    Enable MongoDB connection logs to see detailed error:
+    
+    ```bash
+    # Check server console output for:
+    # "✔ MongoDB connected: <host>" (success)
+    # "MongoDB initial connection failed" (failure)
+    ```
+  </Accordion>
+  
+  <Accordion title="Client Can't Connect to API">
+    Verify:
+    
+    1. Backend server is running on port 8031
+    2. `NEXT_PUBLIC_API_URL` in client `.env.local` points to correct backend URL
+    3. CORS is properly configured in server `.env`
+    4. Check browser console for network errors
+  </Accordion>
+  
+  <Accordion title="Module Not Found Errors">
+    ```bash
+    # Clear node_modules and reinstall
+    rm -rf node_modules package-lock.json
+    npm install
+    
+    # For Next.js cache issues
+    rm -rf .next
+    npm run dev
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="gear" href="/deployment/environment-variables">
+    Learn about all configuration options
+  </Card>
+  <Card title="Production Deployment" icon="rocket" href="/deployment/production">
+    Deploy your application to production
+  </Card>
+  <Card title="Contributing" icon="code-branch">
+    Read CONTRIBUTING.md for development guidelines
+  </Card>
+  <Card title="API Documentation" icon="book">
+    Explore the API endpoints and usage
+  </Card>
+</CardGroup>

@@ -1,0 +1,263 @@
+---
+title: Frontend Overview
+description: Overview of the Horse Trust frontend architecture built with Next.js 16
+---
+
+## Introduction
+
+The Horse Trust frontend is a modern web application built with **Next.js 16**, utilizing the App Router architecture for optimal performance and developer experience. The platform provides a premium equestrian marketplace with advanced features for buying and selling elite horses.
+
+## Tech Stack
+
+### Core Framework
+
+- **Next.js 16.1.6** - React framework with App Router
+- **React 19.2.3** - UI library
+- **TypeScript 5** - Type-safe development
+
+### Styling
+
+- **Tailwind CSS 4** - Utility-first CSS framework
+- **@tailwindcss/postcss 4** - PostCSS plugin for Tailwind
+- **Custom Design System** - Equestrian-themed color palette
+
+### UI Components
+
+- **Lucide React 0.575.0** - Icon library for consistent iconography
+
+### Development
+
+```json
+{
+  "scripts": {
+    "dev": "next dev -p 8030",
+    "build": "next build",
+    "start": "next start -p 8030",
+    "lint": "eslint"
+  }
+}
+```
+
+## Project Structure
+
+```
+client/
+├── app/                          # Next.js App Router
+│   ├── actions/                  # Server Actions
+│   │   ├── auth.ts              # Authentication actions
+│   │   └── horses.ts            # Horse management actions
+│   ├── dashboard/               # Dashboard page
+│   ├── login/                   # Login page
+│   ├── marketplace/             # Marketplace pages
+│   │   └── [id]/               # Dynamic horse detail page
+│   ├── registro/                # Registration page
+│   ├── registro-caballo/        # Horse registration
+│   ├── utils/                   # Utility functions
+│   │   └── apiFetch.ts         # API fetch wrapper
+│   ├── layout.tsx               # Root layout
+│   ├── page.tsx                 # Homepage
+│   └── globals.css              # Global styles
+├── component/                   # Reusable components
+│   ├── GetServerData/          # Server data components
+│   ├── home/                   # Homepage components
+│   ├── layout/                 # Layout components
+│   └── marketplace/            # Marketplace components
+├── types/                       # TypeScript type definitions
+├── next.config.ts              # Next.js configuration
+├── tsconfig.json               # TypeScript configuration
+└── package.json                # Dependencies
+```
+
+## Key Features
+
+### Server-Side Rendering (SSR)
+
+The application leverages Next.js 16's App Router for server-side rendering:
+
+```tsx title="app/layout.tsx"
+import { cookies } from 'next/headers';
+
+export default async function RootLayout({
+  children,
+}: { children: React.ReactNode }) {
+  const cookieStore = await cookies();
+  const isLoggedIn = cookieStore.has('horse_trust_token');
+  
+  return (
+    <html lang="en">
+      <body>
+        <Header initialIsLoggedIn={isLoggedIn}/>
+        {children}
+        <Footer/>
+      </body>
+    </html>
+  );
+}
+```
+
+### Server Actions
+
+Server Actions provide secure backend communication:
+
+```tsx title="app/actions/auth.ts"
+"use server";
+import { cookies } from 'next/headers';
+
+export async function loginUser(email: string, password: string) {
+  try {
+    const res = await apiFetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await res.json();
+    
+    const cookieStore = await cookies();
+    cookieStore.set('horse_trust_token', data.token, { 
+      httpOnly: true, 
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    });
+
+    return { success: true, data };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+```
+
+### Dynamic Routes
+
+Dynamic routing for horse details:
+
+```
+app/marketplace/[id]/page.tsx → /marketplace/123
+```
+
+### Data Fetching
+
+Server-side data fetching with revalidation:
+
+```tsx
+async function getHorses() {
+  const res = await fetch(`${apiUrl}/horses`, {
+    next: { revalidate: 60 } // Revalidate every 60 seconds
+  });
+  
+  const data = await res.json();
+  return Array.isArray(data) ? data : data.data;
+}
+```
+
+## Environment Configuration
+
+### Environment Variables
+
+```bash
+NEXT_PUBLIC_API_URL=https://s02-26-e33-horse-trust-api.vercel.app/api
+NODE_ENV=production
+```
+
+### API Integration
+
+The frontend communicates with the backend API using a custom `apiFetch` wrapper:
+
+```tsx title="app/utils/apiFetch.ts"
+export async function apiFetch(endpoint: string, options?: RequestInit) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  return fetch(`${apiUrl}${endpoint}`, options);
+}
+```
+
+## Performance Optimizations
+
+### Image Optimization
+
+Next.js Image component for optimized loading:
+
+```tsx
+import Image from 'next/image';
+
+<Image 
+  src="/img/logo.png" 
+  alt="HorseTrust Logo" 
+  width={80} 
+  height={23.3} 
+  className="object-contain" 
+  priority 
+/>
+```
+
+### Font Loading
+
+Google Fonts loaded via CSS with display swap:
+
+```css
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+```
+
+### Code Splitting
+
+Automatic code splitting through Next.js App Router with client components marked with `"use client"` directive.
+
+## Metadata Configuration
+
+```tsx
+export const metadata: Metadata = {
+  title: "HorseTrust | Mercado de Caballos de Élite Verificados",
+  description: "La plataforma líder para la compra y venta de caballos de alto valor.",
+};
+```
+
+## Development Workflow
+
+### Local Development
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server on port 8030
+npm run dev
+
+# Build for production
+npm run build
+
+# Start production server
+npm start
+```
+
+### Type Safety
+
+TypeScript interfaces ensure type safety across the application:
+
+```tsx title="types/index.ts"
+export interface ApiResponse {
+  success: boolean;
+  message: string;
+  data: {
+    team: string;
+    status: string;
+  }
+}
+```
+
+## Authentication Flow
+
+1. User submits credentials via login form
+2. Client-side form calls `loginUser` server action
+3. Server action communicates with backend API
+4. HTTP-only cookie is set on successful authentication
+5. User is redirected to dashboard
+6. Header component reads cookie to display user state
+
+## Deployment
+
+The frontend is optimized for deployment on Vercel with automatic:
+
+- Edge runtime optimization
+- Static page generation where applicable
+- Incremental Static Regeneration (ISR)
+- Image optimization via Next.js Image component

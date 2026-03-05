@@ -1,0 +1,247 @@
+---
+title: Git Workflow
+description: Learn about our Git branching strategy, commit conventions, and pull request process
+---
+
+## Branch Structure
+
+Horse Trust uses a structured Git workflow to maintain code quality and enable smooth collaboration.
+
+```
+main (production)
+  └── dev (development)
+       ├── feature/your-feature-1
+       ├── feature/your-feature-2
+       └── fix/your-fix
+```
+
+### Branch Types
+
+- **`main`** - Production branch, always stable and deployable
+- **`dev`** - Development branch, integration branch for features
+- **`feature/*`** - New functionality branches
+- **`fix/*`** - Bug fix branches
+
+<Warning>
+**NEVER push directly to `dev` or `main` branches.** Always work in feature or fix branches and create pull requests.
+</Warning>
+
+## Creating a New Branch
+
+### Step 1: Update Your Local Repository
+
+Always start from an updated `dev` branch:
+
+```bash
+# Switch to dev branch
+git checkout dev
+
+# Pull latest changes
+git pull origin dev
+```
+
+### Step 2: Create Your Feature Branch
+
+Use descriptive branch names that clearly indicate the purpose:
+
+```bash
+# For new features
+git checkout -b feature/descriptive-name
+
+# For bug fixes
+git checkout -b fix/descriptive-name
+```
+
+**Good branch names:**
+- `feature/user-authentication`
+- `feature/donation-tracking`
+- `fix/login-redirect-error`
+- `fix/broken-api-endpoint`
+
+**Bad branch names:**
+- `feature/update`
+- `fix/bug`
+- `test-branch`
+
+## Making Changes
+
+### Development Best Practices
+
+1. **Write clean, documented code** - Make your code easy to understand
+2. **Follow project conventions** - Maintain consistency with existing code
+3. **Add tests** - Include tests for new functionality
+4. **Test thoroughly** - Ensure all tests pass before committing
+
+## Commit Conventions
+
+We follow [Conventional Commits](https://www.conventionalcommits.org/) specification for clear and structured commit history.
+
+### Commit Format
+
+```bash
+git add .
+git commit -m "type: brief description
+
+Detailed description if necessary"
+```
+
+### Commit Types
+
+- **`feat`** - New feature
+  ```bash
+  feat: add user profile management
+  ```
+
+- **`fix`** - Bug fix
+  ```bash
+  fix: resolve login redirect issue
+  ```
+
+- **`docs`** - Documentation changes
+  ```bash
+  docs: update API documentation
+  ```
+
+- **`style`** - Code formatting (no functional changes)
+  ```bash
+  style: format code with prettier
+  ```
+
+- **`refactor`** - Code refactoring
+  ```bash
+  refactor: optimize database queries
+  ```
+
+- **`test`** - Adding or modifying tests
+  ```bash
+  test: add unit tests for auth service
+  ```
+
+- **`chore`** - Maintenance tasks
+  ```bash
+  chore: update dependencies
+  ```
+
+### Commit Examples
+
+**Good commits:**
+```bash
+feat: implement donation tracking system
+
+Added functionality to track horse donations including
+donor information, amount, and date.
+```
+
+```bash
+fix: correct calculation in adoption fee
+
+Fixed floating-point error in fee calculation that was
+causing incorrect totals.
+```
+
+**Bad commits:**
+```bash
+Update files
+Fixed stuff
+WIP
+```
+
+## Pushing Your Changes
+
+Once you've committed your changes, push them to the remote repository:
+
+```bash
+git push origin feature/your-feature-name
+```
+
+## Creating a Pull Request
+
+### Step 1: Open a Pull Request
+
+1. Go to the GitHub repository
+2. Click "New Pull Request"
+3. Set the base branch to `dev`
+4. Set the compare branch to your feature/fix branch
+
+### Step 2: Fill Out the PR Template
+
+Provide comprehensive information:
+
+**Required information:**
+- **Description** - Clear explanation of what changes you made and why
+- **Screenshots** - Visual evidence of changes (if applicable)
+- **Checklist** - Mark completed tasks:
+  - [ ] Code follows project standards
+  - [ ] All tests pass
+  - [ ] Documentation updated
+  - [ ] No breaking changes (or documented if necessary)
+
+### Step 3: Assign Reviewers
+
+- Assign the repository maintainer as a reviewer
+- Add relevant team members if needed
+
+### Step 4: Wait for Review
+
+- Automated tests will run automatically
+- The repository maintainer will review your code
+- Be responsive to feedback and requested changes
+
+## Review Process
+
+### What to Expect
+
+1. **Automated Checks** - CI/CD pipeline runs tests automatically
+2. **Code Review** - Repository maintainer reviews your changes
+3. **Feedback** - You may be asked to make changes
+4. **Approval** - Once approved, the maintainer will merge to `dev`
+
+### Review Checklist
+
+Reviewers will check:
+
+- [ ] Code quality and readability
+- [ ] Adherence to coding standards
+- [ ] Test coverage
+- [ ] Documentation completeness
+- [ ] No security vulnerabilities
+- [ ] Performance considerations
+
+<Note>
+All tests must pass before a PR can be merged. Make sure to run tests locally before pushing.
+</Note>
+
+## After Your PR is Merged
+
+Once your pull request is merged:
+
+1. Delete your feature branch (GitHub will prompt you)
+2. Update your local repository:
+   ```bash
+   git checkout dev
+   git pull origin dev
+   ```
+3. Start working on your next contribution!
+
+## Important Rules
+
+<Warning>
+- **NO direct pushes to `dev` or `main`**
+- **Always work in feature/fix branches**
+- **All tests must pass before creating a PR**
+- **Wait for approval before merging**
+</Warning>
+
+## Getting Help
+
+If you have questions about the Git workflow:
+
+- Contact the repository maintainer
+- Reach out to the team: **S02-26-Equipo-33-Web-App**
+- Review this documentation
+
+## Additional Resources
+
+- [Conventional Commits](https://www.conventionalcommits.org/)
+- [Git Documentation](https://git-scm.com/doc)
+- [GitHub Flow Guide](https://guides.github.com/introduction/flow/)
